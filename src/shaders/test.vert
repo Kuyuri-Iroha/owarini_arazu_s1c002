@@ -16,4 +16,5 @@ void main() {
   vNormal = (normalMatrix * vec4(normal, 0.0)).xyz;
   vColor = color;
   gl_Position = mvpMatrix * vec4(position, 1.0);
+  //gl_Position = vec4(ivec2(gl_VertexID & 1, gl_VertexID >> 1) * 2 - 1, 0, 1);
 }

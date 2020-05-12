@@ -7,10 +7,8 @@ flat in vec4 vColor;
 
 out vec4 outColor;
 
-void main()
-{
-  vec3 light = normalize(vec3(0.5, 0.5, -0.5));
-  float diff = max(dot(light, vNormal), 0.1);
-  outColor = vColor * diff;
-  outColor = vec4(1.0);
+void main() {
+  vec3 light = normalize(vec3(0.5, 1.5, 1.5));
+  float diff = max(dot(light, vNormal), 0.4);
+  outColor = vec4(vColor.rgb * diff, vColor.a);
 }

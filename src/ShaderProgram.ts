@@ -23,10 +23,13 @@ export default class {
   }
 
   program: WebGLProgram;
-  uniformLocationCache: { [key: string]: WebGLUniformLocation | null } = {};
-  attribLocationCache: { [key: string]: number | null } = {};
+  uniformLocationCache: Map<string, WebGLUniformLocation | null>;
+  attribLocationCache: Map<string, number>;
 
   constructor() {
+    this.uniformLocationCache = new Map<string, WebGLUniformLocation | null>();
+    this.attribLocationCache = new Map<string, number>();
+
     const tmp = Renderer.gl.createProgram();
     if (tmp === null) {
       console.log('Faild create program: ' + this);
@@ -47,25 +50,25 @@ export default class {
   }
 
   getUniformLocaltion(name: string): WebGLUniformLocation | null {
-    if (this.uniformLocationCache[name] !== null) {
-      return this.uniformLocationCache[name];
+    if (this.uniformLocationCache.has(name)) {
+      return this.uniformLocationCache.get(name) as WebGLUniformLocation | null;
     }
 
-    return (this.uniformLocationCache[name] = Renderer.gl.getUniformLocation(
-      this.program,
-      name
-    ));
+    const location = Renderer.gl.getUniformLocation(this.program, name);
+    this.uniformLocationCache.set(name, location);
+
+    return location;
   }
 
   getAttribLocation(name: string): number {
-    if (this.attribLocationCache[name] !== null) {
-      return this.attribLocationCache[name] as number;
+    if (this.attribLocationCache.has(name)) {
+      return this.attribLocationCache.get(name) as number;
     }
 
-    return (this.attribLocationCache[name] = Renderer.gl.getAttribLocation(
-      this.program,
-      name
-    ));
+    const location = Renderer.gl.getAttribLocation(this.program, name);
+    this.attribLocationCache.set(name, location);
+
+    return location;
   }
 
   setAttribute(
