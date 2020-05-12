@@ -3,14 +3,15 @@ import testVert from './shaders/test.vert';
 import testFrag from './shaders/test.frag';
 import Shader from './Shader';
 import ShaderProgram from './ShaderProgram';
-import Utils from './Utils';
-import { mat4, vec3 } from 'gl-matrix';
+import { mat4, vec3, glMatrix } from 'gl-matrix';
 import InteractionCamera from './InteractionCamera';
+import { Mesh, OBJ } from 'webgl-obj-loader';
+import oldbody from './models/oldbody.obj';
 
 window.addEventListener('DOMContentLoaded', (): void => {
   const gl = Renderer.gl;
 
-  const camera = new InteractionCamera(5.0);
+  const camera = new InteractionCamera(10.0);
 
   const testVertShader = new Shader(testVert, gl.VERTEX_SHADER);
   const testFragShader = new Shader(testFrag, gl.FRAGMENT_SHADER);
@@ -18,19 +19,9 @@ window.addEventListener('DOMContentLoaded', (): void => {
   const testProgram = new ShaderProgram();
   testProgram.link(testVertShader, testFragShader);
 
-  const sphereData = Utils.createSphereGeometry(16, 16, 0.2);
-  const vboPos = ShaderProgram.createVBO(
-    Utils.getFloat32ArrayFromVec3Array(sphereData.pos)
-  );
-  const vboNorm = ShaderProgram.createVBO(
-    Utils.getFloat32ArrayFromVec3Array(sphereData.norm)
-  );
-  const vboCol = ShaderProgram.createVBO(
-    Utils.getFloat32ArrayFromVec4Array(sphereData.col)
-  );
-  const ibo = ShaderProgram.createIBO(
-    Utils.getInt16ArrayFromVec3Array(sphereData.idx)
-  );
+  // oldbody
+  const oldbodyMesh = new Mesh(oldbody, { calcTangentsAndBitangents: true });
+  const meshWithBuffer = OBJ.initMeshBuffers(gl, oldbodyMesh);
 
   let mMatrix = mat4.identity(mat4.create());
   let vMatrix = mat4.identity(mat4.create());
@@ -56,7 +47,7 @@ window.addEventListener('DOMContentLoaded', (): void => {
     mat4.lookAt(vMatrix, camera.position, camera.center, camera.up);
     mat4.perspective(
       pMatrix,
-      90,
+      glMatrix.toRadian(90),
       Renderer.canvas.width / Renderer.canvas.height,
       0.001,
       100
@@ -68,7 +59,7 @@ window.addEventListener('DOMContentLoaded', (): void => {
     const radian = time % (Math.PI * 2.0);
     mat4.identity(mMatrix);
     mat4.rotate(mMatrix, mMatrix, radian, axis);
-    mat4.rotate(mMatrix, mMatrix, radian, [axis[1], axis[0], axis[2]]);
+    mat4.translate(mMatrix, mMatrix, vec3.fromValues(0.0, -0.8, 0.0));
     mat4.multiply(mvpMatrix, vpMatrix, mMatrix);
     mat4.invert(invMatrix, mMatrix);
     mat4.transpose(normalMatrix, invMatrix);
@@ -82,14 +73,29 @@ window.addEventListener('DOMContentLoaded', (): void => {
     testProgram.sendMatrix4f('mMatrix', mMatrix);
     testProgram.sendMatrix4f('mvpMatrix', mvpMatrix);
     testProgram.sendMatrix4f('normalMatrix', normalMatrix);
-    testProgram.setAttribute(vboPos, 'position', 3, gl.FLOAT);
-    testProgram.setAttribute(vboNorm, 'normal', 3, gl.FLOAT);
-    testProgram.setAttribute(vboCol, 'color', 4, gl.FLOAT);
-    testProgram.setIBO(ibo);
+    testProgram.setAttribute(
+      meshWithBuffer.vertexBuffer,
+      'position',
+      meshWithBuffer.vertexBuffer.itemSize,
+      gl.FLOAT
+    );
+    testProgram.setAttribute(
+      meshWithBuffer.normalBuffer,
+      'normal',
+      meshWithBuffer.normalBuffer.itemSize,
+      gl.FLOAT
+    );
+    testProgram.setAttribute(
+      meshWithBuffer.textureBuffer,
+      'texcoord',
+      meshWithBuffer.textureBuffer.itemSize,
+      gl.FLOAT
+    );
+    testProgram.setIBO(meshWithBuffer.indexBuffer);
     gl.viewport(0.0, 0.0, Renderer.canvas.width, Renderer.canvas.height);
     gl.drawElements(
       gl.TRIANGLES,
-      sphereData.idx.length * 3,
+      meshWithBuffer.indexBuffer.numItems,
       gl.UNSIGNED_SHORT,
       0
     );

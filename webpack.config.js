@@ -39,6 +39,12 @@ module.exports = {
         use: [
           'raw-loader'
         ]
+      },
+      {
+        test: /\.obj$/,
+        use: [
+          'raw-loader'
+        ]
       }
     ]
   },
