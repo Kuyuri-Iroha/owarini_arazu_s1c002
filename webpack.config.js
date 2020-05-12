@@ -14,6 +14,7 @@ module.exports = {
       {
         enforce: 'pre',
         test: /\.ts$/,
+        exclude: /samples/,
         use: [
           {
             loader: 'tslint-loader',
@@ -26,7 +27,18 @@ module.exports = {
       },
       {
         test: /\.ts$/,
+        exclude: /samples/,
         use: 'ts-loader'
+      },
+      {
+        test: /\.(glsl|vs|fs|vert|frag)$/,
+        exclude: [
+          /node_modules/,
+          /samples/
+        ],
+        use: [
+          'raw-loader'
+        ]
       }
     ]
   },
