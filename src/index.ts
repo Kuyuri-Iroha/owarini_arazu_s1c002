@@ -1,7 +1,7 @@
 import Renderer from './Renderer';
 import Shader from './Shader';
 import ShaderProgram from './ShaderProgram';
-import { mat4, vec3, glMatrix } from 'gl-matrix';
+import { mat4, vec3, glMatrix, quat } from 'gl-matrix';
 import InteractionCamera from './InteractionCamera';
 import { Mesh, OBJ } from 'webgl-obj-loader';
 import MRTTexture from './MRTTexture';
@@ -71,7 +71,7 @@ window.addEventListener('DOMContentLoaded', (): void => {
   let vpMatrix = mat4.identity(mat4.create());
   let mvpMatrix = mat4.identity(mat4.create());
 
-  // main loop
+  // main loop ========================================
   const zero = Date.now();
   // let frameCount = 0;
   const tick = (): void => {
@@ -80,11 +80,14 @@ window.addEventListener('DOMContentLoaded', (): void => {
     const time = (Date.now() - zero) * 1e-3 - 1.0;
 
     // camera update
-    camera.update();
+    const fov = glMatrix.toRadian(80);
+    camera.position = vec3.fromValues(0.0, 0.01, -0.7);
+    camera.center = vec3.create();
+    // camera.update();
     mat4.lookAt(vMatrix, camera.position, camera.center, camera.up);
     mat4.perspective(
       pMatrix,
-      glMatrix.toRadian(90),
+      fov,
       Renderer.canvas.width / Renderer.canvas.height,
       0.001,
       100
@@ -92,11 +95,16 @@ window.addEventListener('DOMContentLoaded', (): void => {
     mat4.multiply(vpMatrix, pMatrix, vMatrix);
 
     // sphere update
-    const axis = vec3.fromValues(0.0, 1.0, 0.0);
-    const radian = time % (Math.PI * 2.0);
+    const radian = (-time * 100.0) % 360;
     mat4.identity(mMatrix);
-    mat4.rotate(mMatrix, mMatrix, radian, axis);
-    mat4.translate(mMatrix, mMatrix, vec3.fromValues(0.0, -0.8, 0.0));
+    let trs = mat4.create();
+    mat4.fromRotationTranslationScale(
+      trs,
+      quat.fromEuler(quat.create(), 0.0, radian, 0.0),
+      vec3.fromValues(0.0, -0.06, -0.4),
+      vec3.fromValues(0.17, 0.17, 0.17)
+    );
+    mat4.multiply(mMatrix, mMatrix, trs);
     mat4.multiply(mvpMatrix, vpMatrix, mMatrix);
 
     // Rendering
@@ -164,13 +172,17 @@ window.addEventListener('DOMContentLoaded', (): void => {
       Renderer.canvas.width,
       Renderer.canvas.height
     );
+    raymarchingProg.send1f('time', time);
+    raymarchingProg.sendVector3f('cameraPosition', camera.position);
+    raymarchingProg.sendVector3f('cameraCenter', camera.center);
+    raymarchingProg.sendVector3f('cameraUp', camera.up);
+    raymarchingProg.send1f('fov', fov);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gBufTex[writeBufferIdx].unBind();
 
     swapGBuffer();
 
     // Screen rendering
-    // if (frameCount !== 0) {
     gl.viewport(0.0, 0.0, Renderer.canvas.width, Renderer.canvas.height);
     outputProg.use();
     outputProg.sendTexture2D(
@@ -194,12 +206,6 @@ window.addEventListener('DOMContentLoaded', (): void => {
       Renderer.canvas.height
     );
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    // }
-
-    // readBufferIdx = (readBufferIdx + 1) % 2;
-    // writeBufferIdx = (writeBufferIdx + 1) % 2;
-
-    // frameCount++;
   };
 
   tick();

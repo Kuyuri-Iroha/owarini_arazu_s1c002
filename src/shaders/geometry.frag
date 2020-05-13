@@ -12,7 +12,7 @@ layout (location = 2) out vec4 gbuffer2;
 void main() {
   vec2 scaledUV = floor(vTexcoord * 50.0);
   float uvCol = step(0.5, mod(scaledUV.x + scaledUV.y, 2.0));
-  gbuffer0 = vec4(vec3(clamp(uvCol, 0.5, 0.8)), 1.0);
+  gbuffer0 = vec4(vec3(clamp(uvCol, 0.15, 0.6)), 1.0);
 
   gbuffer1 = vec4(vec3(vScPostion.z), 1.0);
   gbuffer2 = vec4(vWorldNormal, 1.0);
