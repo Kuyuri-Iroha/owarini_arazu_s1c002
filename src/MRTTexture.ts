@@ -44,6 +44,34 @@ export default class {
     this.unBind();
   }
 
+  setDepthBuffer(): void {
+    const gl = Renderer.gl;
+
+    this.bind();
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.DEPTH_ATTACHMENT,
+      gl.TEXTURE_2D,
+      this.depthTexture.texture,
+      0
+    );
+    this.unBind();
+  }
+
+  removeDepthBuffer(): void {
+    const gl = Renderer.gl;
+
+    this.bind();
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.DEPTH_ATTACHMENT,
+      gl.TEXTURE_2D,
+      null,
+      0
+    );
+    this.unBind();
+  }
+
   bind(): void {
     const gl = Renderer.gl;
 
