@@ -5,15 +5,14 @@ layout(location = 2) in vec2 texcoord;
 
 uniform mat4 mMatrix;
 uniform mat4 mvpMatrix;
-uniform mat4 normalMatrix;
 
-out vec3 vPosition;
-out vec3 vNormal;
+out vec3 vScPostion;
+out vec3 vWorldNormal;
 out vec2 vTexcoord;
 
 void main() {
-  vPosition = (mMatrix * vec4(position, 1.0)).xyz;
-  vNormal = (normalMatrix * vec4(normal, 0.0)).xyz;
+  vScPostion = (mvpMatrix * vec4(position, 1.0)).xyz;
+  vWorldNormal = (mMatrix * vec4(normal, 1.0)).xyz;
   vTexcoord = texcoord;
   gl_Position = mvpMatrix * vec4(position, 1.0);
 }

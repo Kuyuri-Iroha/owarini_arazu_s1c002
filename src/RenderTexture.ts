@@ -6,6 +6,7 @@ export default class {
   height: number;
   frameBuffer: WebGLFramebuffer | null;
   texture2d: Texture2D;
+  depthTexture: Texture2D;
 
   constructor(width: number, height: number, type: number) {
     const gl = Renderer.gl;
@@ -13,8 +14,12 @@ export default class {
     this.width = width;
     this.height = height;
     this.frameBuffer = gl.createFramebuffer();
+
     this.texture2d = new Texture2D(width, height);
     this.texture2d.setImageData(null, type);
+
+    this.depthTexture = new Texture2D(width, height);
+    this.depthTexture.setImageData(null, gl.FLOAT, gl.DEPTH_COMPONENT);
 
     this.bind();
     gl.framebufferTexture2D(
@@ -22,6 +27,13 @@ export default class {
       gl.COLOR_ATTACHMENT0,
       gl.TEXTURE_2D,
       this.texture2d.texture,
+      0
+    );
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.DEPTH_ATTACHMENT,
+      gl.TEXTURE_2D,
+      this.depthTexture.texture,
       0
     );
     this.unBind();

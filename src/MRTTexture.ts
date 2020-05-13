@@ -5,7 +5,8 @@ export default class {
   width: number;
   height: number;
   frameBuffer: WebGLFramebuffer | null;
-  texture: Texture2D[] = [];
+  texture2d: Texture2D[] = [];
+  depthTexture: Texture2D;
 
   constructor(width: number, height: number, mrtNum: number, type: number) {
     const gl = Renderer.gl;
@@ -15,20 +16,31 @@ export default class {
     this.frameBuffer = gl.createFramebuffer();
 
     for (let ti = 0; ti < mrtNum; ti++) {
-      this.texture[ti] = new Texture2D(width, height);
-      this.texture[ti].setImageData(null, type);
+      const tex = new Texture2D(width, height);
+      tex.setImageData(null, type);
+      this.texture2d.push(tex);
     }
 
+    this.depthTexture = new Texture2D(width, height);
+    this.depthTexture.setImageData(null, gl.FLOAT, gl.DEPTH_COMPONENT);
+
     this.bind();
-    for (let ti = 0; ti < this.texture.length; ti++) {
+    for (let ti = 0; ti < this.texture2d.length; ti++) {
       gl.framebufferTexture2D(
         gl.FRAMEBUFFER,
         gl.COLOR_ATTACHMENT0 + ti,
         gl.TEXTURE_2D,
-        this.texture[ti].texture,
+        this.texture2d[ti].texture,
         0
       );
     }
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.DEPTH_ATTACHMENT,
+      gl.TEXTURE_2D,
+      this.depthTexture.texture,
+      0
+    );
     this.unBind();
   }
 
@@ -37,7 +49,7 @@ export default class {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
     let bufferList = [];
-    for (let ti = 0; ti < this.texture.length; ti++) {
+    for (let ti = 0; ti < this.texture2d.length; ti++) {
       bufferList[ti] = gl.COLOR_ATTACHMENT0 + ti;
     }
     gl.drawBuffers(bufferList);
