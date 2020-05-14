@@ -6,7 +6,8 @@ import InteractionCamera from './InteractionCamera';
 import { Mesh, OBJ } from 'webgl-obj-loader';
 import MRTTexture from './MRTTexture';
 
-import oldbody from './models/oldbody.obj';
+import goddessData from './models/goddess.obj';
+import fighterData from './models/fighter.obj';
 
 import geometryVertStr from './shaders/geometry.vert';
 import geometryFragStr from './shaders/geometry.frag';
@@ -19,9 +20,12 @@ window.addEventListener('DOMContentLoaded', (): void => {
 
   const camera = new InteractionCamera(10.0);
 
-  // oldbody
-  const oldbodyMesh = new Mesh(oldbody, { calcTangentsAndBitangents: true });
-  const meshWithBuffer = OBJ.initMeshBuffers(gl, oldbodyMesh);
+  // goddess
+  const goddess = new Mesh(goddessData, { calcTangentsAndBitangents: true });
+  const goddessBuffer = OBJ.initMeshBuffers(gl, goddess);
+
+  const fighter = new Mesh(fighterData, { calcTangentsAndBitangents: true });
+  const fighterBuffer = OBJ.initMeshBuffers(gl, fighter);
 
   // G-Buffer
   const gBufTex = [
@@ -94,8 +98,18 @@ window.addEventListener('DOMContentLoaded', (): void => {
     );
     mat4.multiply(vpMatrix, pMatrix, vMatrix);
 
-    // sphere update
-    const radian = (-time * 100.0) % 360;
+    // Rendering
+    // Geometry rendering
+    gBufTex[writeBufferIdx].bind();
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    gBufTex[writeBufferIdx].setViewport();
+    geometryProg.use();
+
+    // 女神
+    const radian = (-time * 50.0) % 360;
     mat4.identity(mMatrix);
     let trs = mat4.create();
     mat4.fromRotationTranslationScale(
@@ -107,39 +121,69 @@ window.addEventListener('DOMContentLoaded', (): void => {
     mat4.multiply(mMatrix, mMatrix, trs);
     mat4.multiply(mvpMatrix, vpMatrix, mMatrix);
 
-    // Rendering
-    // Geometry rendering
-    gBufTex[writeBufferIdx].bind();
-    gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.CULL_FACE);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    gBufTex[writeBufferIdx].setViewport();
-    geometryProg.use();
     geometryProg.sendMatrix4f('mMatrix', mMatrix);
     geometryProg.sendMatrix4f('mvpMatrix', mvpMatrix);
     geometryProg.setAttribute(
-      meshWithBuffer.vertexBuffer,
+      goddessBuffer.vertexBuffer,
       'position',
-      meshWithBuffer.vertexBuffer.itemSize,
+      goddessBuffer.vertexBuffer.itemSize,
       gl.FLOAT
     );
     geometryProg.setAttribute(
-      meshWithBuffer.normalBuffer,
+      goddessBuffer.normalBuffer,
       'normal',
-      meshWithBuffer.normalBuffer.itemSize,
+      goddessBuffer.normalBuffer.itemSize,
       gl.FLOAT
     );
     geometryProg.setAttribute(
-      meshWithBuffer.textureBuffer,
+      goddessBuffer.textureBuffer,
       'texcoord',
-      meshWithBuffer.textureBuffer.itemSize,
+      goddessBuffer.textureBuffer.itemSize,
       gl.FLOAT
     );
-    geometryProg.setIBO(meshWithBuffer.indexBuffer);
+    geometryProg.setIBO(goddessBuffer.indexBuffer);
     gl.drawElements(
       gl.TRIANGLES,
-      meshWithBuffer.indexBuffer.numItems,
+      goddessBuffer.indexBuffer.numItems,
+      gl.UNSIGNED_SHORT,
+      0
+    );
+
+    // 1機
+    mat4.identity(mMatrix);
+    mat4.fromRotationTranslationScale(
+      trs,
+      quat.fromEuler(quat.create(), 0.0, radian, 0.0),
+      vec3.fromValues(-0.1, 0.02, -0.4),
+      vec3.fromValues(0.02, 0.02, 0.02)
+    );
+    mat4.multiply(mMatrix, mMatrix, trs);
+    mat4.multiply(mvpMatrix, vpMatrix, mMatrix);
+
+    geometryProg.sendMatrix4f('mMatrix', mMatrix);
+    geometryProg.sendMatrix4f('mvpMatrix', mvpMatrix);
+    geometryProg.setAttribute(
+      fighterBuffer.vertexBuffer,
+      'position',
+      fighterBuffer.vertexBuffer.itemSize,
+      gl.FLOAT
+    );
+    geometryProg.setAttribute(
+      fighterBuffer.normalBuffer,
+      'normal',
+      fighterBuffer.normalBuffer.itemSize,
+      gl.FLOAT
+    );
+    geometryProg.setAttribute(
+      fighterBuffer.textureBuffer,
+      'texcoord',
+      fighterBuffer.textureBuffer.itemSize,
+      gl.FLOAT
+    );
+    geometryProg.setIBO(fighterBuffer.indexBuffer);
+    gl.drawElements(
+      gl.TRIANGLES,
+      fighterBuffer.indexBuffer.numItems,
       gl.UNSIGNED_SHORT,
       0
     );
