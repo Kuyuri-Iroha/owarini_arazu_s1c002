@@ -24,112 +24,63 @@ layout(location = 2) out vec4 gbuffer2;
 const float PI = acos(-1.0);
 const float PI2 = PI * 2.0;
 
-// https://thebookofshaders.com/10/?lan=jp
-float random(vec2 st) {
-  return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+#define SPEED 1.3
+
+#define rot(x) mat2(cos(x), -sin(x), sin(x), cos(x))
+#define pal(a, b, c, d, e) ((a) + (b)*sin(6.28 * ((c) * (d) + (e))))
+
+vec3 path(float z) {
+  z *= 0.5;
+  return vec3(sin(z + cos(z * 0.7)) * 0.7, cos(z + cos(z * 1.2)) * 0.6, 0.) *
+         0.7;
 }
 
-// https://qiita.com/kaneta1992/items/21149c78159bd27e0860
-mat2 rot(float r) {
-  float c = cos(r), s = sin(r);
-  return mat2(c, s, -s, c);
-}
-
-vec2 pmod(vec2 p, float r) {
-  float a = atan(p.x, p.y) + PI / r;
-  float n = PI2 / r;
-  a = floor(a / n) * n;
-  return p * rot(-a);
-}
-
-// https://iquilezles.org/www/articles/distfunctions/distfunctions.htm
-float sphere(vec3 p, float s) { return length(p) - s; }
-
-float cappedCylinder(vec3 p, float h, float r) {
-  vec2 d = abs(vec2(length(p.xz), p.y)) - vec2(h, r);
-  return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
-}
-
-vec3 repLim2(vec3 p, vec3 c, vec3 l) {
-  return p - c * clamp(round(p / c), -l, l);
-}
-
-float box(vec3 p, vec3 b) {
-  vec3 q = abs(p) - b;
-  return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
-}
-
-float octahedron(vec3 p, float s) {
-  p = abs(p);
-  return (p.x + p.y + p.z - s) * 0.57735027;
-}
-
-// http://mercury.sexy/hg_sdf/
-float fOpUnionRound(float a, float b, float r) {
-  vec2 u = max(vec2(r - a, r - b), vec2(0));
-  return max(r, min(a, b)) - length(u);
-}
-
-// The "Stairs" flavour produces n-1 steps of a staircase:
-// much less stupid version by paniq
-float fOpUnionStairs(float a, float b, float r, float n) {
-  float s = r / n;
-  float u = b - r;
-  return min(min(a, b), 0.5 * (u + a + abs((mod(u - a + s, 2.0 * s)) - s)));
-}
-
-float centerMap(vec3 p) {
-  vec3 centerP = p + vec3(0.0, -0.04, -0.6);
-
-  centerP.xz = centerP.xz * rot(time * PI * -0.4);
-  centerP.xz = centerP.xz * rot(PI * 4.0 * centerP.y);
-  centerP.xz = pmod(centerP.xz, 8.0) * 0.1;
-  centerP.z -= 0.05 * (1.8 - abs(centerP.y) / 0.1) * 0.1;
-
-  return box(centerP, vec3(0.001, 0.2, 0.001));
-}
-
-float coreMap(vec3 p) {
-  vec3 coreP = p + vec3(0.0, -0.04, -0.6);
-
-  coreP.xz = coreP.xz * rot(time * PI * 0.2);
-
-  return octahedron(coreP, 0.05);
-}
-
+#define pmod(p, x) mod(p, x) - x * 0.5
 float map(vec3 p) {
-  vec2 seedP = p.xz;
-  seedP += vec2(EPS, 0.5);
-  vec2 seed = vec2(floor(seedP.x), floor(seedP.y + EPS));
+  float d = 10e6;
 
-  vec3 sphereP = p;
-  float sphereC = 0.6;
-  sphereP.xz += vec2(sphereC * 0.5, -0.3);
-  sphereP =
-      repLim2(vec3(sphereP), vec3(sphereC, 0.0, 1.0), vec3(1.0, 1.0, 3.0));
-  sphereP.y -= mod(time * 0.6 - random(seed) * 5.0, 3.0);
-  sphereP.y += 0.5;
+  // w is used for the lines
+  // and p is used for the tunnel
 
-  vec3 pillarP = p;
-  float pillarC = 0.8;
-  pillarP.z -= 0.3;
-  pillarP.x = abs(pillarP.x) - 0.7;
-  pillarP.z = mod(pillarP.z + 0.5 * pillarC, pillarC) - 0.5 * pillarC - 0.2;
+  vec3 w = p;
+  w = abs(w);
 
-  vec3 dentP = pillarP;
-  dentP.y -= 0.94;
-  dentP.xz = pmod(dentP.xz, 20.0);
-  dentP.z -= 0.1;
+  // the tunnel is made by the next two lines, otherwise it's just to planes
+  p -= path(p.z);
 
-  float sphereDE = sphere(sphereP, 0.05);
-  float pillarDE = cappedCylinder(pillarP, 0.1, 1.1);
-  float dentDE = box(dentP, vec3(0.004, 1.1, 0.01));
-  float planeDE = dot(p, vec3(0.0, 1.0, 0.0)) + 0.2;
+  p.xy *= rot(sin(w.z * 2.9 + p.z * 0.7 +
+                  sin(w.x * 2. + w.z * 4. + time * 0. + 0.5) + w.z * 0.1) *
+              1.6);
 
-  float milk = fOpUnionRound(sphereDE, planeDE, 0.07);
-  float pillars = fOpUnionStairs(planeDE, max(-dentDE, pillarDE), 0.07, 5.0);
-  float center = min(centerMap(p), coreMap(p));
-  return min(min(milk, pillars), center);
+  float flTop = (-p.y + 1.2) * 2.3;
+  float flBot = (p.y + 0.8) * 0.4;
+  float floors = min(flBot, flTop);
+  d = min(d, floors);
+  /*
+  const float sep = 0.2; // seperation between glowy lines
+
+  w.y = pmod(w.y,sep);
+
+
+  vec3 z = p;
+  // random attenuation to feed to the glowy lines
+  float atten = pow(abs(sin(z.z*0.2 + iTime*0.1)), 50.);
+  float attenC = pow(abs(sin(z.z*0.1  + sin(z.x + iTime)*0.2 + sin(z.y*3.)*4. +
+  iTime*0.2)), 100.); float attenB = pow(abs(sin(w.z*0.2  + sin(w.x + iTime)*0.2
+  + sin(w.y*0.7)*4. + w.y*20. + iTime*0.2)), 10.); vec3 col = pal(0.1,0.6 -
+  attenC*0.5,vec3(1.7  - atten*0.6,1.1,0.8),0.2 - atten*0.4 ,0.5 - attenB*0.6 );
+      col = max(col, 0.);
+
+  float sc = 60. - atten*55.;
+
+  // distance to the glowy lines
+  float dGlowzers = max(floors,-abs(w.y) + sep*0.5) - 0.02;
+
+  // glow
+  glowB += exp(-dGlowzers*(70.))*reflAtten*col*40.;
+*/
+  // d *= 0.65;
+  return d;
 }
 
 // normal
@@ -142,37 +93,44 @@ vec3 norm(vec3 p) {
 
 // color
 vec3 objMat(vec3 rp) {
-    vec3 albedo = vec3(0.4);
-    return albedo;
+  vec3 albedo = vec3(0.4);
+  return albedo;
 }
 
 vec3 centerMat(vec3 rp) {
-    vec3 albedo = vec3(0.15);
-    return albedo;
+  vec3 albedo = vec3(0.15);
+  return albedo;
 }
 
 vec3 coreMat(vec3 rp) {
-    vec3 albedo = vec3(1.0);
-    return albedo;
+  vec3 albedo = vec3(1.0);
+  return albedo;
 }
 
 void march(vec2 p, float faceDepth, out vec3 outColor, out float outDepth,
            out vec3 outNormal, out float noHit) {
-  vec3 cp = cameraPosition;
+  vec3 cp = cameraPosition + vec3(0.3, 0.4, 0.0);
   vec3 cd = normalize(cameraCenter - cp);
+
   vec3 cs = normalize(cross(cd, cameraUp));
   vec3 cu = normalize(cross(cs, cd));
   float td = 1.0 / tan(fov / 2.7);
 
-  vec3 ro = cp;
   vec3 rd = normalize(cs * p.x + cu * p.y + cd * td);
+
+  float addedTime = time + 700.0;
+  cp.z += addedTime * SPEED - sin(addedTime) * SPEED * 0.3;
+  cp += path(cp.z);
+  cd = vec3(0, 0, cp.z + 1.0);
+  cd += path(cd.z);
 
   vec3 col = vec3(0.0, 0.0, 0.0);
   float depth = 1.0;
 
+vec3 rp = cp;
   int i = 0;
   for (; i < LOOP_MAX; i++) {
-    vec3 rp = cp + rd * depth;
+    rp = cp + rd * depth;
     float dist = map(rp);
 
     if (faceDepth < (depth - 1.0)) {
@@ -182,16 +140,10 @@ void march(vec2 p, float faceDepth, out vec3 outColor, out float outDepth,
     }
 
     if (abs(dist) < EPS) {
-      if (sim(dist, centerMap(rp))) {
-        col = centerMat(rp);
-      } else if (sim(dist, coreMap(rp))) {
-        col = coreMat(rp);
-      } else {
-        col = objMat(rp);
-      }
-
-      outNormal = norm(rp);
+      outNormal = abs(norm(rp));
       depth += dist;
+
+      col = vec3(depth, depth, depth);
       break;
     }
 
@@ -202,8 +154,9 @@ void march(vec2 p, float faceDepth, out vec3 outColor, out float outDepth,
     noHit = 1.0;
   }
 
-  outDepth = (depth - 1.0); // 初期値が 1.0 であるため
-  outColor = col;
+  outDepth = (depth - 1.0) * 8.0;
+  //outColor = mix(vec3(0.6, 0.1, 0.1), vec3(0.1, 0.1, 0.7), rp.y);
+  outColor = sqrt(pow(vec3(outNormal.x * 0.6, outNormal.z * 0.0, outNormal.y * 1.0), vec3(3.0)));
 }
 
 void main() {
@@ -220,7 +173,6 @@ void main() {
 
   gbuffer0 = noHit == 1.0 ? texture(colorTex, uv) : vec4(col, 1.0);
   gbuffer1 = noHit == 1.0 ? geoDepthCol : vec4(vec3(depth), 1.0);
-  gbuffer2 = noHit == 1.0
-                 ? texture(normalTex, uv)
-                 : vec4(normalize(vec3(norm.x, norm.y, norm.z)), 1.0);
+  gbuffer2 = noHit == 1.0 ? texture(normalTex, uv)
+                          : vec4(normalize(vec3(norm.x, norm.y, norm.z)), 0.0);
 }

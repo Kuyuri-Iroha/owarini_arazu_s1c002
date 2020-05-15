@@ -11,7 +11,7 @@ layout (location = 0) out vec4 outColor;
 #define saturate(x) clamp(x, 0.0, 1.0)
 
 float genFog(float depth) {
-    float density = 1.0;
+    float density = 0.01;
     return 1.0 - saturate(1.0 / exp(pow(density * depth, 2.0)));
 }
 
@@ -21,14 +21,20 @@ void main() {
 
   vec3 color = texture(colorTex, uv).rgb;
   float depth = texture(depthTex, uv).z;
-  vec3 norm = normalize(texture(normalTex, uv).xyz);
+  vec4 normCol4 = texture(normalTex, uv);
+  vec3 norm = normalize(normCol4.xyz);
+  if(normCol4.a == -1.0) {
+    vec3 v0 = normalize(texture(depthTex, uv + vec2(1, 0.0)).xyz - texture(depthTex, uv + vec2(-1, 0.0)).xyz);
+    vec3 v1 = normalize(texture(depthTex, uv + vec2(0.0, 1)).xyz - texture(depthTex, uv + vec2(0.0, -1)).xyz);
+    norm = normalize(cross(v0, v1));
+  }
 
-  vec3 light = normalize(vec3(0.5, 1.5, -1.5));
-  float diff = (max(dot(light, norm), 0.0));
+  vec3 light = normalize(vec3(-2.0, -3.0, 0.2));
+  float diff = normCol4.a == 0.0 ? 1.0 : (max(dot(light, norm), 0.4));
 
-  vec3 ambient = vec3(0.1);
+  vec3 ambient = vec3(0.08, 0.0, 0.1);
   float fog = genFog(depth);
-  vec3 fogCol = vec3(0.1);
+  vec3 fogCol = vec3(1.0, 1.0, 1.0) * 0.5;
 
   vec3 objCol = color * diff + ambient;
 

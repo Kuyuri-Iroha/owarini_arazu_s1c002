@@ -84,9 +84,9 @@ window.addEventListener('DOMContentLoaded', (): void => {
     const time = (Date.now() - zero) * 1e-3 - 1.0;
 
     // camera update
-    const fov = glMatrix.toRadian(80);
-    camera.position = vec3.fromValues(0.0, 0.01, -0.7);
-    camera.center = vec3.create();
+    const fov = glMatrix.toRadian(60);
+    camera.position = vec3.fromValues(0.0, -0.04, 0.0);
+    camera.center = vec3.fromValues(0.0, 0.0, 1.0);
     // camera.update();
     mat4.lookAt(vMatrix, camera.position, camera.center, camera.up);
     mat4.perspective(
@@ -109,13 +109,12 @@ window.addEventListener('DOMContentLoaded', (): void => {
     geometryProg.use();
 
     // 女神
-    const radian = (-time * 50.0) % 360;
     mat4.identity(mMatrix);
     let trs = mat4.create();
     mat4.fromRotationTranslationScale(
       trs,
-      quat.fromEuler(quat.create(), 0.0, radian, 0.0),
-      vec3.fromValues(0.0, -0.06, -0.4),
+      quat.fromEuler(quat.create(), 0.0, 210, 0.0),
+      vec3.fromValues(0.02, -0.16, 0.2),
       vec3.fromValues(0.17, 0.17, 0.17)
     );
     mat4.multiply(mMatrix, mMatrix, trs);
@@ -153,9 +152,9 @@ window.addEventListener('DOMContentLoaded', (): void => {
     mat4.identity(mMatrix);
     mat4.fromRotationTranslationScale(
       trs,
-      quat.fromEuler(quat.create(), 0.0, radian, 0.0),
-      vec3.fromValues(-0.1, 0.02, -0.4),
-      vec3.fromValues(0.02, 0.02, 0.02)
+      quat.fromEuler(quat.create(), 20, 210, 0.0),
+      vec3.fromValues(-0.02, -0.03, 0.16),
+      vec3.fromValues(0.005, 0.005, 0.005)
     );
     mat4.multiply(mMatrix, mMatrix, trs);
     mat4.multiply(mvpMatrix, vpMatrix, mMatrix);
