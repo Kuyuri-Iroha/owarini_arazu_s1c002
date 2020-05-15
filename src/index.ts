@@ -11,7 +11,11 @@ import fighterData from './models/fighter.obj';
 import particleData from './models/particle.obj';
 
 import particleMoveVertStr from './shaders/particleMove.vert';
-import particleMoveFragStr from './shaders/particleMove.frag';
+import transformFeedbackFragStr from './shaders/transformFeedback.frag';
+import trailInitFragStr from './shaders/trailInit.frag';
+import trailUpdateFragStr from './shaders/trailUpdate.frag';
+import trailRenderVertStr from './shaders/trailRender.vert';
+import trailRenderFragStr from './shaders/trailRender.frag';
 import particleVertStr from './shaders/particle.vert';
 import particleFragStr from './shaders/particle.frag';
 import geometryVertStr from './shaders/geometry.vert';
@@ -56,7 +60,10 @@ window.addEventListener('DOMContentLoaded', (): void => {
 
   // Particle transform feedback
   const particleMoveVert = new Shader(particleMoveVertStr, gl.VERTEX_SHADER);
-  const particleMoveFrag = new Shader(particleMoveFragStr, gl.FRAGMENT_SHADER);
+  const particleMoveFrag = new Shader(
+    transformFeedbackFragStr,
+    gl.FRAGMENT_SHADER
+  );
   const particleMoveProg = new ShaderProgram();
   gl.transformFeedbackVaryings(
     particleMoveProg.program,
@@ -65,6 +72,23 @@ window.addEventListener('DOMContentLoaded', (): void => {
   );
   particleMoveProg.link(particleMoveVert, particleMoveFrag);
   const particleMoveTF = gl.createTransformFeedback();
+
+  // Trail initialize
+  const rectVert = new Shader(rectVertStr, gl.VERTEX_SHADER);
+  const trailInitFrag = new Shader(trailInitFragStr, gl.FRAGMENT_SHADER);
+  const trailInitProg = new ShaderProgram();
+  trailInitProg.link(rectVert, trailInitFrag);
+
+  // Trail update
+  const trailUpdateFrag = new Shader(trailUpdateFragStr, gl.FRAGMENT_SHADER);
+  const trailUpdateProg = new ShaderProgram();
+  trailUpdateProg.link(rectVert, trailUpdateFrag);
+
+  // Trail render
+  const trailRenderVert = new Shader(trailRenderVertStr, gl.VERTEX_SHADER);
+  const trailRenderFrag = new Shader(trailRenderFragStr, gl.FRAGMENT_SHADER);
+  const trailRenderProg = new ShaderProgram();
+  trailRenderProg.link(trailRenderVert, trailRenderFrag);
 
   // Geometry
   const geometryVert = new Shader(geometryVertStr, gl.VERTEX_SHADER);
@@ -79,7 +103,6 @@ window.addEventListener('DOMContentLoaded', (): void => {
   particleProg.link(particleVert, particleFrag);
 
   // Raymarching
-  const rectVert = new Shader(rectVertStr, gl.VERTEX_SHADER);
   const raymarchingFrag = new Shader(raymarchingFragStr, gl.FRAGMENT_SHADER);
   const raymarchingProg = new ShaderProgram();
   raymarchingProg.link(rectVert, raymarchingFrag);
@@ -135,6 +158,37 @@ window.addEventListener('DOMContentLoaded', (): void => {
     particleVelWVBO = tmpV;
   };
 
+  // Trails
+  const trailNum = 1000;
+  const trailVertexNum = 100;
+  let trailBufferR = new MRTTexture(
+    trailNum,
+    trailVertexNum,
+    2,
+    gl.FLOAT,
+    false
+  );
+  let trailBufferW = new MRTTexture(
+    trailNum,
+    trailVertexNum,
+    2,
+    gl.FLOAT,
+    false
+  );
+  const swapTrailBuffer = (): void => {
+    const tmp = trailBufferR;
+    trailBufferR = trailBufferW;
+    trailBufferW = tmp;
+  };
+
+  // Trail initialize
+  trailBufferW.bind();
+  trailInitProg.use();
+  trailBufferW.setViewport();
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  trailBufferW.unBind();
+  swapTrailBuffer();
+
   // main loop ========================================
   const zero = Date.now();
   let previousTime = performance.now();
@@ -180,6 +234,26 @@ window.addEventListener('DOMContentLoaded', (): void => {
     gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
     gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 1, null);
     swapParticleVBO();
+
+    // Trail update
+    trailBufferW.bind();
+    trailUpdateProg.use();
+    trailBufferW.setViewport();
+    trailUpdateProg.sendTexture2D(
+      'positionTexture',
+      trailBufferR.texture2d[0],
+      0
+    );
+    trailUpdateProg.sendTexture2D(
+      'velocityTexture',
+      trailBufferR.texture2d[1],
+      1
+    );
+    trailUpdateProg.send1f('time', time);
+    trailUpdateProg.send1f('deltaTime', deltaTime);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    trailBufferW.unBind();
+    swapTrailBuffer();
 
     // Rendering
     // Geometry rendering
@@ -314,6 +388,26 @@ window.addEventListener('DOMContentLoaded', (): void => {
       0,
       particleNum
     );
+
+    // Trail rendering
+    mat4.identity(mMatrix);
+    mat4.fromRotationTranslationScale(
+      trs,
+      quat.fromEuler(quat.create(), 0, 0, 0),
+      vec3.fromValues(0.02, 0.0, 0.2),
+      vec3.fromValues(1.0, 1.0, 1.0)
+    );
+    mat4.multiply(mMatrix, mMatrix, trs);
+
+    trailRenderProg.use();
+    trailRenderProg.sendMatrix4f('mMatrix', mMatrix);
+    trailRenderProg.sendMatrix4f('vpMatrix', vpMatrix);
+    trailRenderProg.sendTexture2D(
+      'positionTexture',
+      trailBufferR.texture2d[0],
+      0
+    );
+    gl.drawArraysInstanced(gl.LINE_STRIP, 0, trailVertexNum, trailNum);
 
     gBufTex[writeBufferIdx].unBind();
 
