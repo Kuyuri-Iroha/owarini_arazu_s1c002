@@ -5,6 +5,8 @@
   "author": "Kuyuri Iroha",
   "license": "MIT",
   "devDependencies": {
+    "@types/createjs": "^0.0.29",
+    "@types/webfontloader": "^1.6.30",
     "prettier": "^2.0.5",
     "raw-loader": "^4.0.1",
     "ts-loader": "^7.0.3",
@@ -22,7 +24,7 @@
   "dependencies": {
     "@types/gl-matrix": "^2.4.5",
     "gl-matrix": "^3.3.0",
-    "three": "^0.116.1"
+    "webfontloader": "^1.6.28"
   },
   "private": true,
   "scripts": {

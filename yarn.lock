@@ -23,6 +23,30 @@
     chalk "^2.0.0"
     js-tokens "^4.0.0"
 
+"@types/createjs-lib@*":
+  version "0.0.29"
+  resolved "https://registry.yarnpkg.com/@types/createjs-lib/-/createjs-lib-0.0.29.tgz#fae82e3ba8606663b190e789cec7d9c728fc41d7"
+  integrity sha1-+uguO6hgZmOxkOeJzsfZxyj8Qdc=
+
+"@types/createjs@^0.0.29":
+  version "0.0.29"
+  resolved "https://registry.yarnpkg.com/@types/createjs/-/createjs-0.0.29.tgz#4d19b0feaa38252dcd79d78a38a4cc6df3f181fc"
+  integrity sha1-TRmw/qo4JS3NedeKOKTMbfPxgfw=
+  dependencies:
+    "@types/createjs-lib" "*"
+    "@types/easeljs" "*"
+    "@types/preloadjs" "*"
+    "@types/soundjs" "*"
+    "@types/tweenjs" "*"
+
+"@types/easeljs@*":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@types/easeljs/-/easeljs-1.0.0.tgz#b339ca0a8d0148819831b0140254d697fd46d974"
+  integrity sha512-DkhxqkgylaZGeuod35MCiv1Rix8GnBGv+URRBZt4rsMvhyi7Iap6SZbeEN5bD3b8BXHozHEKB/to9ohUDr3GIA==
+  dependencies:
+    "@types/createjs-lib" "*"
+    "@types/tweenjs" "*"
+
 "@types/events@*":
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/@types/events/-/events-3.0.0.tgz#2862f3f58a9a7f7c3e78d79f130dd4d71c25c2a7"
@@ -51,6 +75,33 @@
   version "13.13.5"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-13.13.5.tgz#96ec3b0afafd64a4ccea9107b75bf8489f0e5765"
   integrity sha512-3ySmiBYJPqgjiHA7oEaIo2Rzz0HrOZ7yrNO5HWyaE5q0lQ3BppDZ3N53Miz8bw2I7gh1/zir2MGVZBvpb1zq9g==
+
+"@types/preloadjs@*":
+  version "0.6.32"
+  resolved "https://registry.yarnpkg.com/@types/preloadjs/-/preloadjs-0.6.32.tgz#12cff7c7f92e3838a780d438ce49c8cec981830d"
+  integrity sha1-Es/3x/kuODingNQ4zknIzsmBgw0=
+  dependencies:
+    "@types/createjs-lib" "*"
+
+"@types/soundjs@*":
+  version "0.6.27"
+  resolved "https://registry.yarnpkg.com/@types/soundjs/-/soundjs-0.6.27.tgz#dd2370350eaf7277de5ed55940e3e7d2a016b124"
+  integrity sha1-3SNwNQ6vcnfeXtVZQOPn0qAWsSQ=
+  dependencies:
+    "@types/createjs-lib" "*"
+    "@types/preloadjs" "*"
+
+"@types/tweenjs@*":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@types/tweenjs/-/tweenjs-1.0.0.tgz#a27b9e6abe27bac19ebbdb7de1d98c31ac40c064"
+  integrity sha512-qn0yChkBM0uCDdovXCyZT+HREWP5PaPWrGBuQZ0GIANHZ4E4PZ35vrczagmTyewRwTFJ82/TcYQAvozjNmfcTw==
+  dependencies:
+    "@types/createjs-lib" "*"
+
+"@types/webfontloader@^1.6.30":
+  version "1.6.30"
+  resolved "https://registry.yarnpkg.com/@types/webfontloader/-/webfontloader-1.6.30.tgz#c4fbb1177ef0aa9c8284de237c06fca3291f6c20"
+  integrity sha512-Qn9CTW2hiDNX4UxIiFWUg450wTkNYGlMUh9pz1AO7KIkcqA1Ps0gOkeWtFF8DET/iMyXH1lobmxawQ0wjC8isA==
 
 "@webassemblyjs/ast@1.9.0":
   version "1.9.0"
@@ -3588,11 +3639,6 @@ terser@^4.1.2:
     source-map "~0.6.1"
     source-map-support "~0.5.12"
 
-three@^0.116.1:
-  version "0.116.1"
-  resolved "https://registry.yarnpkg.com/three/-/three-0.116.1.tgz#a393f7a81fdc3e2fbf57ded5ba47dc5bd3678ce0"
-  integrity sha512-l2JCMiA/lVZAuSrLWRYMalvpR+0j8hbIhCpfs4V6JFnw2+JQEQJ5HltNpfFr+9TDpQts1BhtcISehWf/xBGPvQ==
-
 through2@^2.0.0:
   version "2.0.5"
   resolved "https://registry.yarnpkg.com/through2/-/through2-2.0.5.tgz#01c1e39eb31d07cb7d03a96a70823260b23132cd"
@@ -3907,6 +3953,11 @@ wbuf@^1.1.0, wbuf@^1.7.3:
   integrity sha512-O84QOnr0icsbFGLS0O3bI5FswxzRr8/gHwWkDlQFskhSPryQXvrTMxjxGP4+iWYoauLoBvfDpkrOauZ+0iZpDA==
   dependencies:
     minimalistic-assert "^1.0.0"
+
+webfontloader@^1.6.28:
+  version "1.6.28"
+  resolved "https://registry.yarnpkg.com/webfontloader/-/webfontloader-1.6.28.tgz#db786129253cb6e8eae54c2fb05f870af6675bae"
+  integrity sha1-23hhKSU8tujq5UwvsF+HCvZnW64=
 
 webgl-obj-loader@^2.0.8:
   version "2.0.8"

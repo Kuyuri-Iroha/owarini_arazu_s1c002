@@ -19,6 +19,35 @@ export default class {
     Renderer.gl.bindTexture(Renderer.gl.TEXTURE_2D, null);
   }
 
+  setImageDataFromTexImageSource(
+    imageData: TexImageSource,
+    unpackFlipY: boolean
+  ) {
+    const gl = Renderer.gl;
+    this.bind();
+
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, unpackFlipY);
+
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      this.width,
+      this.height,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      imageData
+    );
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    this.unBind();
+  }
+
   setImageData(
     imageData: ArrayBufferView | null,
     type: number,

@@ -5,6 +5,8 @@ import { mat4, vec3, glMatrix, quat } from 'gl-matrix';
 import InteractionCamera from './InteractionCamera';
 import { Mesh, OBJ } from 'webgl-obj-loader';
 import MRTTexture from './MRTTexture';
+import CharsTexture from './CharsTexture';
+import * as WebFont from 'webfontloader';
 
 import goddessData from './models/goddess.obj';
 import fighterData from './models/fighter.obj';
@@ -23,11 +25,17 @@ import geometryFragStr from './shaders/geometry.frag';
 import rectVertStr from './shaders/rect.vert';
 import outputFragStr from './shaders/output.frag';
 import raymarchingFragStr from './shaders/raymarching.frag';
+import charVertStr from './shaders/char.vert';
+import charFragStr from './shaders/char.frag';
 
-window.addEventListener('DOMContentLoaded', (): void => {
+const init = (): void => {
   const gl = Renderer.gl;
 
   const camera = new InteractionCamera(10.0);
+
+  // Char textures
+  const charTexture = new CharsTexture('白銀のデュランダル');
+  console.log(charTexture);
 
   // goddess
   const goddess = new Mesh(goddessData, { calcTangentsAndBitangents: true });
@@ -73,6 +81,33 @@ window.addEventListener('DOMContentLoaded', (): void => {
   particleMoveProg.link(particleMoveVert, particleMoveFrag);
   const particleMoveTF = gl.createTransformFeedback();
 
+  // Char
+  const charVertices = [
+    -1.0,
+    1.0,
+    0.0,
+    1.0,
+    1.0,
+    0.0,
+    -1.0,
+    -1.0,
+    0.0,
+    1.0,
+    -1.0,
+    0.0,
+  ];
+  const charVertexVBO = ShaderProgram.createVBO(
+    new Float32Array(charVertices),
+    gl.STATIC_DRAW
+  );
+  const charTexcoord = [1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0];
+  const charTexcoordVBO = ShaderProgram.createVBO(
+    new Float32Array(charTexcoord),
+    gl.STATIC_DRAW
+  );
+  const charIndices = [0, 1, 2, 3, 2, 1];
+  const charIBO = ShaderProgram.createIBO(new Int16Array(charIndices));
+
   // Trail initialize
   const rectVert = new Shader(rectVertStr, gl.VERTEX_SHADER);
   const trailInitFrag = new Shader(trailInitFragStr, gl.FRAGMENT_SHADER);
@@ -111,6 +146,11 @@ window.addEventListener('DOMContentLoaded', (): void => {
   const outputFrag = new Shader(outputFragStr, gl.FRAGMENT_SHADER);
   const outputProg = new ShaderProgram();
   outputProg.link(rectVert, outputFrag);
+
+  const charVert = new Shader(charVertStr, gl.VERTEX_SHADER);
+  const charFrag = new Shader(charFragStr, gl.FRAGMENT_SHADER);
+  const charProg = new ShaderProgram();
+  charProg.link(charVert, charFrag);
 
   gl.clearColor(0.0, 0.0, 0.0, 0.0);
   gl.clearDepth(1.0);
@@ -472,10 +512,47 @@ window.addEventListener('DOMContentLoaded', (): void => {
       Renderer.canvas.height
     );
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // Char rendering
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.BLEND);
+    charProg.use();
+    charProg.setAttribute(charVertexVBO, 'position', 3, gl.FLOAT);
+    charProg.setAttribute(charTexcoordVBO, 'texcoord', 2, gl.FLOAT);
+    charProg.sendMatrix4f('vpMatrix', vpMatrix);
+    charProg.setIBO(charIBO);
+    for (let i = 0; i < charTexture.textures.length; i++) {
+      mat4.identity(mMatrix);
+      mat4.fromRotationTranslationScale(
+        trs,
+        quat.fromEuler(quat.create(), 0, 0, 0),
+        vec3.fromValues(0.0, -0.1 * i + 0.4, 1.0),
+        vec3.fromValues(0.05, 0.05, 0.05)
+      );
+      mat4.multiply(mMatrix, mMatrix, trs);
+
+      charProg.sendMatrix4f('mMatrix', mMatrix);
+      charProg.sendTexture2D('charTexture', charTexture.textures[i], 0);
+      gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
+    }
+    gl.disable(gl.BLEND);
   };
 
   tick();
-});
+};
+
+const preload = (): void => {
+  WebFont.load({
+    google: {
+      families: ['Sawarabi Mincho'],
+    },
+    active: init,
+  });
+};
+
+window.addEventListener('load', preload);
 
 window.addEventListener('resize', (): void => {
   Renderer.canvas.width = window.innerWidth;
