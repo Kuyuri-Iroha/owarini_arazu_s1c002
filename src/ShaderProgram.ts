@@ -4,11 +4,14 @@ import Texture2D from './Texture2D';
 import { mat4, vec3 } from 'gl-matrix';
 
 export default class {
-  public static createVBO(data: Float32Array): WebGLBuffer | null {
+  public static createVBO(
+    data: Float32Array,
+    usage: number
+  ): WebGLBuffer | null {
     const gl = Renderer.gl;
     const vbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, data, usage);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     return vbo;
   }

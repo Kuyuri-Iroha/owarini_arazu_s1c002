@@ -8,7 +8,12 @@ import MRTTexture from './MRTTexture';
 
 import goddessData from './models/goddess.obj';
 import fighterData from './models/fighter.obj';
+import particleData from './models/particle.obj';
 
+import particleMoveVertStr from './shaders/particleMove.vert';
+import particleMoveFragStr from './shaders/particleMove.frag';
+import particleVertStr from './shaders/particle.vert';
+import particleFragStr from './shaders/particle.frag';
 import geometryVertStr from './shaders/geometry.vert';
 import geometryFragStr from './shaders/geometry.frag';
 import rectVertStr from './shaders/rect.vert';
@@ -24,8 +29,13 @@ window.addEventListener('DOMContentLoaded', (): void => {
   const goddess = new Mesh(goddessData, { calcTangentsAndBitangents: true });
   const goddessBuffer = OBJ.initMeshBuffers(gl, goddess);
 
+  // fighter
   const fighter = new Mesh(fighterData, { calcTangentsAndBitangents: true });
   const fighterBuffer = OBJ.initMeshBuffers(gl, fighter);
+
+  // particle
+  const particle = new Mesh(particleData, { calcTangentsAndBitangents: true });
+  const particleBuffer = OBJ.initMeshBuffers(gl, particle);
 
   // G-Buffer
   const gBufTex = [
@@ -44,11 +54,29 @@ window.addEventListener('DOMContentLoaded', (): void => {
     writeBufferIdx = (writeBufferIdx + 1) % 2;
   };
 
+  // Particle transform feedback
+  const particleMoveVert = new Shader(particleMoveVertStr, gl.VERTEX_SHADER);
+  const particleMoveFrag = new Shader(particleMoveFragStr, gl.FRAGMENT_SHADER);
+  const particleMoveProg = new ShaderProgram();
+  gl.transformFeedbackVaryings(
+    particleMoveProg.program,
+    ['outPosition', 'outVelocity'],
+    gl.SEPARATE_ATTRIBS
+  );
+  particleMoveProg.link(particleMoveVert, particleMoveFrag);
+  const particleMoveTF = gl.createTransformFeedback();
+
   // Geometry
   const geometryVert = new Shader(geometryVertStr, gl.VERTEX_SHADER);
   const geometryFrag = new Shader(geometryFragStr, gl.FRAGMENT_SHADER);
   const geometryProg = new ShaderProgram();
   geometryProg.link(geometryVert, geometryFrag);
+
+  // Particle
+  const particleVert = new Shader(particleVertStr, gl.VERTEX_SHADER);
+  const particleFrag = new Shader(particleFragStr, gl.FRAGMENT_SHADER);
+  const particleProg = new ShaderProgram();
+  particleProg.link(particleVert, particleFrag);
 
   // Raymarching
   const rectVert = new Shader(rectVertStr, gl.VERTEX_SHADER);
@@ -75,13 +103,51 @@ window.addEventListener('DOMContentLoaded', (): void => {
   let vpMatrix = mat4.identity(mat4.create());
   let mvpMatrix = mat4.identity(mat4.create());
 
+  // Particle VBO for transform feedback
+  const particleNum = 100000;
+  const particlePos = new Float32Array(particleNum * 3);
+  const particleVel = new Float32Array(particleNum * 3);
+  for (let vi = 0; vi < particleNum; vi += 3) {
+    particlePos[vi + 0] = 0.03 * Math.random() - 0.015;
+    particlePos[vi + 1] = 0.5 * Math.random() - 0.25;
+    particlePos[vi + 2] = 0.03 * Math.random() - 0.015;
+
+    particleVel[vi + 0] = 0.0;
+    particleVel[vi + 1] = 0.1;
+    particleVel[vi + 2] = 0.0;
+  }
+  let particlePosRVBO = ShaderProgram.createVBO(particlePos, gl.DYNAMIC_COPY);
+  let particlePosWVBO = ShaderProgram.createVBO(
+    new Float32Array(particlePos.length),
+    gl.DYNAMIC_COPY
+  );
+  let particleVelRVBO = ShaderProgram.createVBO(particleVel, gl.DYNAMIC_COPY);
+  let particleVelWVBO = ShaderProgram.createVBO(
+    new Float32Array(particleVel.length),
+    gl.DYNAMIC_COPY
+  );
+  const swapParticleVBO = (): void => {
+    const tmpP = particlePosRVBO;
+    const tmpV = particleVelRVBO;
+    particlePosRVBO = particlePosWVBO;
+    particleVelRVBO = particleVelWVBO;
+    particlePosWVBO = tmpP;
+    particleVelWVBO = tmpV;
+  };
+
   // main loop ========================================
   const zero = Date.now();
+  let previousTime = performance.now();
   // let frameCount = 0;
   const tick = (): void => {
     requestAnimationFrame(tick);
 
     const time = (Date.now() - zero) * 1e-3 - 1.0;
+    const currentTime = performance.now();
+    const deltaTime = Math.min(0.1, (currentTime - previousTime) * 0.001);
+    previousTime = currentTime;
+    // const deltaTime = Math.min(0.01, time - prevTime);
+    // prevTime = time;
 
     // camera update
     const fov = glMatrix.toRadian(60);
@@ -98,6 +164,23 @@ window.addEventListener('DOMContentLoaded', (): void => {
     );
     mat4.multiply(vpMatrix, pMatrix, vMatrix);
 
+    // Particle transform feedback
+    particleMoveProg.use();
+    particleMoveProg.setAttribute(particlePosRVBO, 'position', 3, gl.FLOAT);
+    particleMoveProg.setAttribute(particleVelRVBO, 'velocity', 3, gl.FLOAT);
+    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, particleMoveTF);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, particlePosWVBO);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 1, particleVelWVBO);
+    particleMoveProg.send1f('deltaTime', deltaTime);
+    gl.enable(gl.RASTERIZER_DISCARD);
+    gl.beginTransformFeedback(gl.POINTS);
+    gl.drawArrays(gl.POINTS, 0, particleNum);
+    gl.disable(gl.RASTERIZER_DISCARD);
+    gl.endTransformFeedback();
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 1, null);
+    swapParticleVBO();
+
     // Rendering
     // Geometry rendering
     gBufTex[writeBufferIdx].bind();
@@ -108,7 +191,7 @@ window.addEventListener('DOMContentLoaded', (): void => {
     gBufTex[writeBufferIdx].setViewport();
     geometryProg.use();
 
-    // 女神
+    // goddess
     mat4.identity(mMatrix);
     let trs = mat4.create();
     mat4.fromRotationTranslationScale(
@@ -148,7 +231,7 @@ window.addEventListener('DOMContentLoaded', (): void => {
       0
     );
 
-    // 1機
+    // fighter
     mat4.identity(mMatrix);
     mat4.fromRotationTranslationScale(
       trs,
@@ -186,6 +269,52 @@ window.addEventListener('DOMContentLoaded', (): void => {
       gl.UNSIGNED_SHORT,
       0
     );
+
+    // particle
+    mat4.identity(mMatrix);
+    mat4.fromRotationTranslationScale(
+      trs,
+      quat.fromEuler(quat.create(), 0, 0, 0),
+      vec3.fromValues(0.02, 0.0, 0.2),
+      vec3.fromValues(0.004, 0.004, 0.004)
+    );
+    mat4.multiply(mMatrix, mMatrix, trs);
+
+    particleProg.use();
+    particleProg.sendMatrix4f('mMatrix', mMatrix);
+    particleProg.sendMatrix4f('vpMatrix', vpMatrix);
+    particleProg.setAttribute(
+      particleBuffer.vertexBuffer,
+      'position',
+      particleBuffer.vertexBuffer.itemSize,
+      gl.FLOAT
+    );
+    particleProg.setAttribute(
+      particleBuffer.normalBuffer,
+      'normal',
+      particleBuffer.normalBuffer.itemSize,
+      gl.FLOAT
+    );
+    particleProg.setAttribute(
+      particleBuffer.textureBuffer,
+      'texcoord',
+      particleBuffer.textureBuffer.itemSize,
+      gl.FLOAT
+    );
+    particleProg.setAttribute(particlePosRVBO, 'instancePosition', 3, gl.FLOAT);
+    gl.vertexAttribDivisor(
+      particleProg.getAttribLocation('instancePosition'),
+      1
+    );
+    particleProg.setIBO(particleBuffer.indexBuffer);
+    gl.drawElementsInstanced(
+      gl.TRIANGLES,
+      particleBuffer.indexBuffer.numItems,
+      gl.UNSIGNED_SHORT,
+      0,
+      particleNum
+    );
+
     gBufTex[writeBufferIdx].unBind();
 
     swapGBuffer();
