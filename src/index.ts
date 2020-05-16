@@ -157,9 +157,6 @@ const init = (): void => {
   const charProg = new ShaderProgram();
   charProg.link(charVert, charFrag);
 
-  gl.clearColor(0.0, 0.0, 0.0, 0.0);
-  gl.clearDepth(1.0);
-
   // clear Read G-Buffer
   gBufTex[readBufferIdx].bind();
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -209,18 +206,18 @@ const init = (): void => {
 
   // Trails
   const trailNum = 1000;
-  const trailVertexNum = 100;
+  const trailVertexNum = 10;
   let trailBufferR = new MRTTexture(
     trailNum,
     trailVertexNum,
-    2,
+    3,
     gl.FLOAT,
     false
   );
   let trailBufferW = new MRTTexture(
     trailNum,
     trailVertexNum,
-    2,
+    3,
     gl.FLOAT,
     false
   );
@@ -304,14 +301,48 @@ const init = (): void => {
       trailBufferR.texture2d[1],
       1
     );
+    trailUpdateProg.sendTexture2D(
+      'counterTexture',
+      trailBufferR.texture2d[2],
+      2
+    );
+    trailUpdateProg.send1f('time', time);
+    trailUpdateProg.send1f('deltaTime', deltaTime);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    trailBufferW.unBind();
+    // swapTrailBuffer();
+    swapTrailBuffer();
+
+    /*
+    trailBufferW.bind();
+    trailUpdateProg.use();
+    trailBufferW.setViewport();
+    trailUpdateProg.sendTexture2D(
+      'positionTexture',
+      trailBufferR.texture2d[0],
+      0
+    );
+    trailUpdateProg.sendTexture2D(
+      'velocityTexture',
+      trailBufferR.texture2d[1],
+      1
+    );
+    trailUpdateProg.sendTexture2D(
+      'counterTexture',
+      trailBufferR.texture2d[2],
+      2
+    );
     trailUpdateProg.send1f('time', time);
     trailUpdateProg.send1f('deltaTime', deltaTime);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     trailBufferW.unBind();
     swapTrailBuffer();
+    */
 
     // Rendering
     // Geometry rendering
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    gl.clearDepth(1.0);
     gBufTex[writeBufferIdx].bind();
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
@@ -437,6 +468,7 @@ const init = (): void => {
       1
     );
     particleProg.setIBO(particleBuffer.indexBuffer);
+    /*
     gl.drawElementsInstanced(
       gl.TRIANGLES,
       particleBuffer.indexBuffer.numItems,
@@ -444,6 +476,7 @@ const init = (): void => {
       0,
       particleNum
     );
+    */
 
     // Trail rendering
     mat4.identity(mMatrix);
@@ -460,7 +493,7 @@ const init = (): void => {
     trailRenderProg.sendMatrix4f('vpMatrix', vpMatrix);
     trailRenderProg.sendTexture2D(
       'positionTexture',
-      trailBufferR.texture2d[0],
+      trailBufferW.texture2d[0],
       0
     );
     gl.drawArraysInstanced(gl.LINE_STRIP, 0, trailVertexNum, trailNum);
@@ -501,6 +534,8 @@ const init = (): void => {
     swapGBuffer();
 
     // Scene rendering
+    gl.clearColor(0.05, 0.05, 0.05, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
     sceneRender.bind();
     gl.viewport(0, 0, sceneTexSize, sceneTexSize);
     outputProg.use();
@@ -566,7 +601,7 @@ const init = (): void => {
 
       charProg.sendMatrix4f('mMatrix', mMatrix);
       charProg.sendTexture2D('charTexture', charTexture.textures[i], 0);
-      gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
+      // gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
     }
     gl.disable(gl.BLEND);
   };

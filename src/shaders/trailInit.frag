@@ -6,6 +6,7 @@ precision highp float;
 
 layout(location = 0) out vec3 outPosition;
 layout(location = 1) out vec3 outVelocity;
+layout(location = 2) out vec3 outCounter;
 
 float random(float x) { return fract(sin(x * 12.9898) * 43758.5453); }
 
@@ -22,6 +23,7 @@ vec3 randomInSphere(float v) {
 
 void main(void) {
   // trailの番号をランダムシードとして与えることで同じtrailではすべての頂点位置を同じにしている
-  outPosition = 0.01 * randomInSphere(gl_FragCoord.x);
-  outVelocity = vec3(0.0);
+  outPosition = randomInSphere(gl_FragCoord.x) * vec3(0.2, 0.5, 0.2);
+  outVelocity = randomInSphere(gl_FragCoord.x) * vec3(0.2, 0.5, 0.2);
+  outCounter = vec3(0.0);
 }
