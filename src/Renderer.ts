@@ -2,6 +2,7 @@ export default class Renderer {
   private static _enabled: boolean = false;
   private static _gl: WebGL2RenderingContext;
   private static _canvas: HTMLCanvasElement;
+  private static _sceneTextureSize: number;
 
   public static get gl(): WebGL2RenderingContext {
     if (Renderer._enabled === false) {
@@ -25,6 +26,10 @@ export default class Renderer {
     return Renderer._canvas;
   }
 
+  public static getSceneRenderSize(): number {
+    return Renderer._sceneTextureSize;
+  }
+
   private static createCanvasAndContext(): [
     HTMLCanvasElement,
     WebGL2RenderingContext
@@ -32,6 +37,10 @@ export default class Renderer {
     const canvas = document.createElement('canvas');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    Renderer._sceneTextureSize = Math.min(
+      window.innerWidth,
+      window.innerHeight
+    );
     const gl = canvas.getContext('webgl2');
 
     if (gl === null) {

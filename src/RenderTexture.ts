@@ -6,9 +6,14 @@ export default class {
   height: number;
   frameBuffer: WebGLFramebuffer | null;
   texture2d: Texture2D;
-  depthTexture: Texture2D;
+  depthTexture: Texture2D | null;
 
-  constructor(width: number, height: number, type: number) {
+  constructor(
+    width: number,
+    height: number,
+    type: number,
+    depthDisable?: boolean
+  ) {
     const gl = Renderer.gl;
 
     this.width = width;
@@ -18,8 +23,10 @@ export default class {
     this.texture2d = new Texture2D(width, height);
     this.texture2d.setImageData(null, type);
 
-    this.depthTexture = new Texture2D(width, height);
-    this.depthTexture.setImageData(null, gl.FLOAT, gl.DEPTH_COMPONENT);
+    this.depthTexture = depthDisable ? null : new Texture2D(width, height);
+    if (this.depthTexture !== null) {
+      this.depthTexture.setImageData(null, gl.FLOAT, gl.DEPTH_COMPONENT);
+    }
 
     this.bind();
     gl.framebufferTexture2D(
@@ -29,13 +36,15 @@ export default class {
       this.texture2d.texture,
       0
     );
-    gl.framebufferTexture2D(
-      gl.FRAMEBUFFER,
-      gl.DEPTH_ATTACHMENT,
-      gl.TEXTURE_2D,
-      this.depthTexture.texture,
-      0
-    );
+    if (this.depthTexture !== null) {
+      gl.framebufferTexture2D(
+        gl.FRAMEBUFFER,
+        gl.DEPTH_ATTACHMENT,
+        gl.TEXTURE_2D,
+        this.depthTexture.texture,
+        0
+      );
+    }
     this.unBind();
   }
 

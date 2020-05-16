@@ -27,15 +27,16 @@ import outputFragStr from './shaders/output.frag';
 import raymarchingFragStr from './shaders/raymarching.frag';
 import charVertStr from './shaders/char.vert';
 import charFragStr from './shaders/char.frag';
+import RenderTexture from './RenderTexture';
 
 const init = (): void => {
   const gl = Renderer.gl;
+  const sceneTexSize = Renderer.getSceneRenderSize();
 
   const camera = new InteractionCamera(10.0);
 
   // Char textures
-  const charTexture = new CharsTexture('白銀のデュランダル');
-  console.log(charTexture);
+  const charTexture = new CharsTexture('白銀のデュランダル', 512);
 
   // goddess
   const goddess = new Mesh(goddessData, { calcTangentsAndBitangents: true });
@@ -51,20 +52,23 @@ const init = (): void => {
 
   // G-Buffer
   const gBufTex = [
-    new MRTTexture(Renderer.canvas.width, Renderer.canvas.height, 3, gl.FLOAT),
-    new MRTTexture(Renderer.canvas.width, Renderer.canvas.height, 3, gl.FLOAT),
+    new MRTTexture(sceneTexSize, sceneTexSize, 3, gl.FLOAT),
+    new MRTTexture(sceneTexSize, sceneTexSize, 3, gl.FLOAT),
   ];
-  for (let gi = 0; gi < gBufTex.length; gi++) {
-    for (let gj = 0; gj < gBufTex[gi].texture2d.length; gj++) {
-      gBufTex[gi].texture2d[gj].setFilter(gl.NEAREST, gl.NEAREST);
-    }
-  }
   let readBufferIdx = 0;
   let writeBufferIdx = 1;
   const swapGBuffer = (): void => {
     readBufferIdx = (readBufferIdx + 1) % 2;
     writeBufferIdx = (writeBufferIdx + 1) % 2;
   };
+
+  // Scene render texture
+  const sceneRender = new RenderTexture(
+    sceneTexSize,
+    sceneTexSize,
+    gl.UNSIGNED_BYTE
+  );
+  sceneRender.texture2d.setFilter(gl.LINEAR, gl.LINEAR);
 
   // Particle transform feedback
   const particleMoveVert = new Shader(particleMoveVertStr, gl.VERTEX_SHADER);
@@ -100,7 +104,7 @@ const init = (): void => {
     new Float32Array(charVertices),
     gl.STATIC_DRAW
   );
-  const charTexcoord = [1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0];
+  const charTexcoord = [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
   const charTexcoordVBO = ShaderProgram.createVBO(
     new Float32Array(charTexcoord),
     gl.STATIC_DRAW
@@ -147,6 +151,7 @@ const init = (): void => {
   const outputProg = new ShaderProgram();
   outputProg.link(rectVert, outputFrag);
 
+  // char
   const charVert = new Shader(charVertStr, gl.VERTEX_SHADER);
   const charFrag = new Shader(charFragStr, gl.FRAGMENT_SHADER);
   const charProg = new ShaderProgram();
@@ -162,9 +167,13 @@ const init = (): void => {
 
   let mMatrix = mat4.identity(mat4.create());
   let vMatrix = mat4.identity(mat4.create());
+  let scVMatrix = mat4.identity(mat4.create());
   let pMatrix = mat4.identity(mat4.create());
+  let scPMatrix = mat4.identity(mat4.create());
   let vpMatrix = mat4.identity(mat4.create());
+  let scVPMatrix = mat4.identity(mat4.create());
   let mvpMatrix = mat4.identity(mat4.create());
+  // let scMVPMatrix = mat4.identity(mat4.create());
 
   // Particle VBO for transform feedback
   const particleNum = 100000;
@@ -232,7 +241,6 @@ const init = (): void => {
   // main loop ========================================
   const zero = Date.now();
   let previousTime = performance.now();
-  // let frameCount = 0;
   const tick = (): void => {
     requestAnimationFrame(tick);
 
@@ -240,8 +248,6 @@ const init = (): void => {
     const currentTime = performance.now();
     const deltaTime = Math.min(0.1, (currentTime - previousTime) * 0.001);
     previousTime = currentTime;
-    // const deltaTime = Math.min(0.01, time - prevTime);
-    // prevTime = time;
 
     // camera update
     const fov = glMatrix.toRadian(60);
@@ -249,14 +255,23 @@ const init = (): void => {
     camera.center = vec3.fromValues(0.0, 0.0, 1.0);
     // camera.update();
     mat4.lookAt(vMatrix, camera.position, camera.center, camera.up);
-    mat4.perspective(
-      pMatrix,
-      fov,
-      Renderer.canvas.width / Renderer.canvas.height,
-      0.001,
-      100
-    );
+    mat4.perspective(pMatrix, fov, 1, 0.001, 100);
     mat4.multiply(vpMatrix, pMatrix, vMatrix);
+
+    mat4.lookAt(
+      scVMatrix,
+      vec3.fromValues(0.0, 0.0, -1.0),
+      vec3.create(),
+      vec3.fromValues(0.0, 1.0, 0.0)
+    );
+    mat4.perspective(
+      scPMatrix,
+      60,
+      Renderer.canvas.width / Renderer.canvas.height,
+      0.01,
+      10
+    );
+    mat4.multiply(scVPMatrix, scPMatrix, scVMatrix);
 
     // Particle transform feedback
     particleMoveProg.use();
@@ -303,6 +318,7 @@ const init = (): void => {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     gBufTex[writeBufferIdx].setViewport();
+    // gl.viewport(0, 0, Renderer.canvas.width, Renderer.canvas.height);
     geometryProg.use();
 
     // goddess
@@ -473,11 +489,7 @@ const init = (): void => {
       gBufTex[readBufferIdx].texture2d[2],
       2
     );
-    raymarchingProg.send2f(
-      'resolution',
-      Renderer.canvas.width,
-      Renderer.canvas.height
-    );
+    raymarchingProg.send2f('resolution', sceneTexSize, sceneTexSize);
     raymarchingProg.send1f('time', time);
     raymarchingProg.sendVector3f('cameraPosition', camera.position);
     raymarchingProg.sendVector3f('cameraCenter', camera.center);
@@ -488,8 +500,9 @@ const init = (): void => {
 
     swapGBuffer();
 
-    // Screen rendering
-    gl.viewport(0.0, 0.0, Renderer.canvas.width, Renderer.canvas.height);
+    // Scene rendering
+    sceneRender.bind();
+    gl.viewport(0, 0, sceneTexSize, sceneTexSize);
     outputProg.use();
     outputProg.sendTexture2D(
       'colorTex',
@@ -506,30 +519,48 @@ const init = (): void => {
       gBufTex[readBufferIdx].texture2d[2],
       2
     );
-    outputProg.send2f(
-      'resolution',
-      Renderer.canvas.width,
-      Renderer.canvas.height
-    );
+    outputProg.send2f('resolution', sceneTexSize, sceneTexSize);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    sceneRender.unBind();
 
-    // Char rendering
+    // Screen rendering
+    gl.viewport(0, 0, Renderer.canvas.width, Renderer.canvas.height);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
+    charProg.use();
+    charProg.setAttribute(charVertexVBO, 'position', 3, gl.FLOAT);
+    charProg.setAttribute(charTexcoordVBO, 'texcoord', 2, gl.FLOAT);
+    charProg.sendMatrix4f('vpMatrix', scVPMatrix);
+    charProg.setIBO(charIBO);
+
+    mat4.identity(mMatrix);
+    mat4.fromRotationTranslationScale(
+      trs,
+      quat.fromEuler(quat.create(), 0, 0, 0),
+      vec3.fromValues(0.0, 0.0, 0.0),
+      vec3.fromValues(6.0, 6.0, 6.0)
+    );
+    mat4.multiply(mMatrix, mMatrix, trs);
+
+    charProg.sendMatrix4f('mMatrix', mMatrix);
+    charProg.sendTexture2D('charTexture', sceneRender.texture2d, 0);
+    gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
+
+    // Char rendering
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.BLEND);
     charProg.use();
     charProg.setAttribute(charVertexVBO, 'position', 3, gl.FLOAT);
     charProg.setAttribute(charTexcoordVBO, 'texcoord', 2, gl.FLOAT);
-    charProg.sendMatrix4f('vpMatrix', vpMatrix);
+    charProg.sendMatrix4f('vpMatrix', scVPMatrix);
     charProg.setIBO(charIBO);
     for (let i = 0; i < charTexture.textures.length; i++) {
       mat4.identity(mMatrix);
       mat4.fromRotationTranslationScale(
         trs,
         quat.fromEuler(quat.create(), 0, 0, 0),
-        vec3.fromValues(0.0, -0.1 * i + 0.4, 1.0),
-        vec3.fromValues(0.05, 0.05, 0.05)
+        vec3.fromValues(0.0, 2.0 * i - 8, 1.0),
+        vec3.fromValues(1.0, 1.0, 1.0)
       );
       mat4.multiply(mMatrix, mMatrix, trs);
 
