@@ -3,6 +3,7 @@
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 velocity;
 
+uniform float time;
 uniform float deltaTime;
 
 out vec3 outPosition;
@@ -120,16 +121,23 @@ vec3 curlNoise( vec3 p ){
 }
 
 void main(void) {
-  vec3 vel = velocity;
-  vec3 pos = position;
+  vec3 pos = velocity;
 
-  vec3 acc = cross(normalize(pos), vec3(0.0, 1.0, 0.0)) * 0.006 + vec3(0.0, 0.002, 0.0);
-  acc.xz = -normalize(position).xz * curlNoise(pos * 10.0 + vec3(0.2, 1.0, 0.0)).x * 0.005;
-  vel += acc;
-  pos += acc;
+  vec3 acc = cross(normalize(position), vec3(0.0, 1.0, 0.0)) * 0.008 * ((pos.y + 10.0) * 0.1) + vec3(0.0, 0.0, 0.0);
+  float param1 = smoothstep(0.08, 0.1, length(position.xz));
+  //acc.xz = mix(acc.xz, -normalize(position).xz, param1);
+  //pos += acc;
+  //pos.xz *= (pos.y * 6.0);
+
+  float animParam = (time * 1.0);
+
+  //float theta = -PI / 3.0;
+
+  pos += vec3(0.0, animParam * 0.05, 0.0);
+  pos.xz *= rot(animParam);
   
   if(0.24 < pos.y) {
-    pos.y = -0.24;
+    //pos.y = -0.0;
   }
 
   outPosition = pos;

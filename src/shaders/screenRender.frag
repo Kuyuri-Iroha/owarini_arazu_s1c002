@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 
-uniform sampler2D charTexture;
+uniform sampler2D screenTexture;
 uniform vec2 uResolution;
 
 in vec2 vTexcoord;
@@ -137,6 +137,5 @@ vec4 apply(sampler2D tex, vec2 fragCoord, vec2 resolution) {
 }
 
 void main() {
-  outColor = apply(charTexture, vTexcoord * uResolution, uResolution);
-  //outColor = 
+  outColor = apply(screenTexture, vTexcoord * uResolution, uResolution);
 }

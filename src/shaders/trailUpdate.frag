@@ -15,6 +15,12 @@ uniform float deltaTime;
 
 #define rot(x) mat2(cos(x), -sin(x), sin(x), cos(x))
 
+vec3 path(float z) {
+  z *= 0.5;
+  return vec3(sin(z + cos(z * 0.7)) * 0.7, cos(z + cos(z * 1.2)) * 0.6, 0.) *
+         0.4;
+}
+
 float random(vec4 x) {
   return fract(sin(dot(x, vec4(12.9898, 78.233, 39.425, 27.196))) * 43758.5453);
 }
@@ -101,16 +107,21 @@ void main(void) {
     countRefleshed = 1.0;
   }
 
-  float offsetY = 0.7 * (headCounter.y);
-  pos.y -= offsetY;
-  float animParam = (time * 2.0) + gl_FragCoord.y * 0.1;
+  float offsetZ = 12.0 * (headCounter.y);
+  pos.z -= offsetZ;
+  float animParam = (time * 2.0) + gl_FragCoord.y * 0.002;
 
   float theta = -PI / 3.0;
 
-  pos += vec3(0.0, animParam * 0.05, 0.0);
-  pos.xz *= rot(animParam);
+  pos += vec3(0.0, 0.0, animParam * 0.5);
+  vec3 pa = path(pos.z + time * 1.3);
+  vec3 ns = curlnoise(pos / 2.0, time);
+  //pos.y += ns.y * 0.02;
+  //pos.y += pa.y * 1.0 * pos.z;
 
-  if(0.4 < headPos.y && countRefleshed < 0.5) {
+  //pos.xy *= rot(animParam);
+
+  if(10.0 < headPos.z && countRefleshed < 0.5) {
     headCounter.z = 1.0;
   }
 

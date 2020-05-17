@@ -20,7 +20,7 @@ void main(void) {
 
   vec3 col = uvColV;
 
-  gbuffer0 = vec4(col, 1.0);
+  gbuffer0 = vec4(vec3(vScPostion.x, vScPostion.y+0.3, 0.0), 1.0);
   gbuffer1 = vec4(vec3(vScPostion.z), 1.0);
   gbuffer2 = vec4(vWorldNormal, 1.0);
 }

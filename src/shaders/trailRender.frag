@@ -10,7 +10,7 @@ layout (location = 1) out vec4 gbuffer1;
 layout (location = 2) out vec4 gbuffer2;
 
 void main(void) {
-  gbuffer0 = vec4(vec3(0.7, 0.7, 0.9) * max((vertexID / 10.0), 0.1), 0.4);
+  gbuffer0 = vec4(vec3(0.7, 0.7, 0.9) * max(pow((vertexID / 100.0), 2.0), 0.1) * 1.3, 0.4);
   gbuffer1 = vec4(vec3(vScPostion.z), 1.0);
   gbuffer2 = vec4(vWorldNormal, 0.0);
 }

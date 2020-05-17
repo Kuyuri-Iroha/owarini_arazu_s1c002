@@ -23,7 +23,15 @@ vec3 randomInSphere(float v) {
 
 void main(void) {
   // trailの番号をランダムシードとして与えることで同じtrailではすべての頂点位置を同じにしている
-  outPosition = randomInSphere(gl_FragCoord.x) * vec3(0.2, 0.5, 0.2);
-  outVelocity = randomInSphere(gl_FragCoord.x) * vec3(0.2, 0.5, 0.2);
+  float lr = step(0.5, random(gl_FragCoord.x * 10.0));
+  outPosition = randomInSphere(gl_FragCoord.x) * vec3(0.0, 0.5, 10.0);
+
+  outPosition.x = lr * 0.2 - 0.1;
+  outPosition.x += (random(gl_FragCoord.x * 2.33) - 0.5) * 0.08;
+
+  float theta = acos(dot(outPosition.xy, vec2(1.0, 0.0)) / (length(outPosition.xy)));
+  //outPosition.xy += vec2(0.5 * cos(theta), 0.1 * sin(theta));
+  
+  outVelocity = outPosition;
   outCounter = vec3(0.0);
 }

@@ -1,4 +1,5 @@
 import Texture2D from './Texture2D';
+import Renderer from './Renderer';
 
 export default class CharsTexture {
   registeredChars: Map<string, number>;
@@ -14,14 +15,15 @@ export default class CharsTexture {
 
       const cjsText = new createjs.Text(
         str[ci],
-        '500px Sawarabi Mincho',
-        '#aa1a1a'
+        Math.floor(size / 100) * 100 + 'px Noto Serif JP',
+        '#eee3e5'
       );
       cjsText.cache(0, 0, size, size);
       this.textures[ci].setImageDataFromTexImageSource(
         cjsText.cacheCanvas as HTMLCanvasElement,
         true
       );
+      this.textures[ci].setFilter(Renderer.gl.LINEAR, Renderer.gl.LINEAR);
     }
   }
 

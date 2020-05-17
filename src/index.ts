@@ -6,6 +6,7 @@ import InteractionCamera from './InteractionCamera';
 import { Mesh, OBJ } from 'webgl-obj-loader';
 import MRTTexture from './MRTTexture';
 import CharsTexture from './CharsTexture';
+import RenderTexture from './RenderTexture';
 import * as WebFont from 'webfontloader';
 
 import goddessData from './models/goddess.obj';
@@ -25,18 +26,30 @@ import geometryFragStr from './shaders/geometry.frag';
 import rectVertStr from './shaders/rect.vert';
 import outputFragStr from './shaders/output.frag';
 import raymarchingFragStr from './shaders/raymarching.frag';
+import screenRenderFragStr from './shaders/screenRender.frag';
 import charVertStr from './shaders/char.vert';
 import charFragStr from './shaders/char.frag';
-import RenderTexture from './RenderTexture';
+
+const path = (z: number, scale: number): vec3 => {
+  z *= 0.5;
+  const v = vec3.fromValues(
+    Math.sin(z + Math.cos(z * 0.7)) * 0.7,
+    Math.cos(z + Math.cos(z * 1.2)) * 0.6,
+    Math.cos(z + Math.cos(z * 0.9)) * 2.6
+  );
+  return vec3.scale(v, v, scale);
+};
 
 const init = (): void => {
   const gl = Renderer.gl;
-  const sceneTexSize = Renderer.getSceneRenderSize();
+  const sceneTexSize = Renderer.getSceneRenderSize() * 2.0;
+  // const scWidth = Renderer.canvas.width;
+  // const scHeight = Renderer.canvas.height;
 
   const camera = new InteractionCamera(10.0);
 
   // Char textures
-  const charTexture = new CharsTexture('白銀のデュランダル', 512);
+  const charTexture = new CharsTexture('終りに非ず', 512);
 
   // goddess
   const goddess = new Mesh(goddessData, { calcTangentsAndBitangents: true });
@@ -157,6 +170,11 @@ const init = (): void => {
   const charProg = new ShaderProgram();
   charProg.link(charVert, charFrag);
 
+  // Screen render
+  const screenRenderFrag = new Shader(screenRenderFragStr, gl.FRAGMENT_SHADER);
+  const screenRenderProg = new ShaderProgram();
+  screenRenderProg.link(charVert, screenRenderFrag);
+
   // clear Read G-Buffer
   gBufTex[readBufferIdx].bind();
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -176,14 +194,19 @@ const init = (): void => {
   const particleNum = 100000;
   const particlePos = new Float32Array(particleNum * 3);
   const particleVel = new Float32Array(particleNum * 3);
+  const particleCnt = new Float32Array(particleNum * 3);
   for (let vi = 0; vi < particleNum; vi += 3) {
     particlePos[vi + 0] = 0.03 * Math.random() - 0.015;
     particlePos[vi + 1] = 0.5 * Math.random() - 0.25;
     particlePos[vi + 2] = 0.03 * Math.random() - 0.015;
 
-    particleVel[vi + 0] = 0.0;
-    particleVel[vi + 1] = 0.1;
-    particleVel[vi + 2] = 0.0;
+    particleVel[vi + 0] = particlePos[vi + 0];
+    particleVel[vi + 1] = particlePos[vi + 1];
+    particleVel[vi + 2] = particlePos[vi + 2];
+
+    particleCnt[vi + 0] = 0.0;
+    particleCnt[vi + 1] = 0.0;
+    particleCnt[vi + 2] = 0.0;
   }
   let particlePosRVBO = ShaderProgram.createVBO(particlePos, gl.DYNAMIC_COPY);
   let particlePosWVBO = ShaderProgram.createVBO(
@@ -205,8 +228,8 @@ const init = (): void => {
   };
 
   // Trails
-  const trailNum = 1000;
-  const trailVertexNum = 10;
+  const trailNum = 700;
+  const trailVertexNum = 100;
   let trailBufferR = new MRTTexture(
     trailNum,
     trailVertexNum,
@@ -247,7 +270,7 @@ const init = (): void => {
     previousTime = currentTime;
 
     // camera update
-    const fov = glMatrix.toRadian(60);
+    const fov = glMatrix.toRadian(90);
     camera.position = vec3.fromValues(0.0, -0.04, 0.0);
     camera.center = vec3.fromValues(0.0, 0.0, 1.0);
     // camera.update();
@@ -277,6 +300,7 @@ const init = (): void => {
     gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, particleMoveTF);
     gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, particlePosWVBO);
     gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 1, particleVelWVBO);
+    particleMoveProg.send1f('time', time);
     particleMoveProg.send1f('deltaTime', deltaTime);
     gl.enable(gl.RASTERIZER_DISCARD);
     gl.beginTransformFeedback(gl.POINTS);
@@ -355,10 +379,11 @@ const init = (): void => {
     // goddess
     mat4.identity(mMatrix);
     let trs = mat4.create();
+    const gdPos = path((time + 400.0) * 1.3, 0.01);
     mat4.fromRotationTranslationScale(
       trs,
-      quat.fromEuler(quat.create(), 0.0, 210, 0.0),
-      vec3.fromValues(0.02, -0.16, 0.2),
+      quat.fromEuler(quat.create(), 0.0, 180, 0.0),
+      vec3.add(vec3.create(), gdPos, vec3.fromValues(0.0, -0.22, 0.2)),
       vec3.fromValues(0.17, 0.17, 0.17)
     );
     mat4.multiply(mMatrix, mMatrix, trs);
@@ -424,18 +449,20 @@ const init = (): void => {
       gl.FLOAT
     );
     geometryProg.setIBO(fighterBuffer.indexBuffer);
+    /*
     gl.drawElements(
       gl.TRIANGLES,
       fighterBuffer.indexBuffer.numItems,
       gl.UNSIGNED_SHORT,
       0
     );
+    */
 
     // particle
     mat4.identity(mMatrix);
     mat4.fromRotationTranslationScale(
       trs,
-      quat.fromEuler(quat.create(), 0, 0, 0),
+      quat.fromEuler(quat.create(), -30, 0, 0),
       vec3.fromValues(0.02, 0.0, 0.2),
       vec3.fromValues(0.004, 0.004, 0.004)
     );
@@ -555,6 +582,7 @@ const init = (): void => {
       2
     );
     outputProg.send2f('resolution', sceneTexSize, sceneTexSize);
+    outputProg.sendVector3f('camera', camera.position);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     sceneRender.unBind();
 
@@ -562,23 +590,24 @@ const init = (): void => {
     gl.viewport(0, 0, Renderer.canvas.width, Renderer.canvas.height);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
-    charProg.use();
-    charProg.setAttribute(charVertexVBO, 'position', 3, gl.FLOAT);
-    charProg.setAttribute(charTexcoordVBO, 'texcoord', 2, gl.FLOAT);
-    charProg.sendMatrix4f('vpMatrix', scVPMatrix);
-    charProg.setIBO(charIBO);
+    screenRenderProg.use();
+    screenRenderProg.setAttribute(charVertexVBO, 'position', 3, gl.FLOAT);
+    screenRenderProg.setAttribute(charTexcoordVBO, 'texcoord', 2, gl.FLOAT);
+    screenRenderProg.sendMatrix4f('vpMatrix', scVPMatrix);
+    screenRenderProg.send2f('uResolution', sceneTexSize, sceneTexSize);
+    screenRenderProg.setIBO(charIBO);
 
     mat4.identity(mMatrix);
     mat4.fromRotationTranslationScale(
       trs,
       quat.fromEuler(quat.create(), 0, 0, 0),
       vec3.fromValues(0.0, 0.0, 0.0),
-      vec3.fromValues(6.0, 6.0, 6.0)
+      vec3.fromValues(6.4, 6.4, 6.4)
     );
     mat4.multiply(mMatrix, mMatrix, trs);
 
-    charProg.sendMatrix4f('mMatrix', mMatrix);
-    charProg.sendTexture2D('charTexture', sceneRender.texture2d, 0);
+    screenRenderProg.sendMatrix4f('mMatrix', mMatrix);
+    screenRenderProg.sendTexture2D('screenTexture', sceneRender.texture2d, 0);
     gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
 
     // Char rendering
@@ -588,21 +617,84 @@ const init = (): void => {
     charProg.setAttribute(charVertexVBO, 'position', 3, gl.FLOAT);
     charProg.setAttribute(charTexcoordVBO, 'texcoord', 2, gl.FLOAT);
     charProg.sendMatrix4f('vpMatrix', scVPMatrix);
+    charProg.send2f(
+      'uResolution',
+      Renderer.gl.canvas.width,
+      Renderer.gl.canvas.height
+    );
     charProg.setIBO(charIBO);
-    for (let i = 0; i < charTexture.textures.length; i++) {
-      mat4.identity(mMatrix);
-      mat4.fromRotationTranslationScale(
-        trs,
-        quat.fromEuler(quat.create(), 0, 0, 0),
-        vec3.fromValues(0.0, 2.0 * i - 8, 1.0),
-        vec3.fromValues(1.0, 1.0, 1.0)
-      );
-      mat4.multiply(mMatrix, mMatrix, trs);
 
-      charProg.sendMatrix4f('mMatrix', mMatrix);
-      charProg.sendTexture2D('charTexture', charTexture.textures[i], 0);
-      // gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
-    }
+    let offset = 5.4;
+    const margin = 3.0;
+
+    // 終
+    mat4.fromRotationTranslationScale(
+      trs,
+      quat.fromEuler(quat.create(), 0, 0, 0),
+      vec3.fromValues(0.0, margin * 0 - offset, 1.0),
+      vec3.fromValues(0.9, 0.9, 0.9)
+    );
+    mat4.multiply(mMatrix, mat4.create(), trs);
+
+    charProg.sendMatrix4f('mMatrix', mMatrix);
+    charProg.sendTexture2D('charTexture', charTexture.textures[0], 0);
+    gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
+
+    // リ
+    offset += 0.9;
+    mat4.fromRotationTranslationScale(
+      trs,
+      quat.fromEuler(quat.create(), 0, 0, 0),
+      vec3.fromValues(0.0, margin * 1 - offset, 1.0),
+      vec3.fromValues(0.9, 0.9, 0.9)
+    );
+    mat4.multiply(mMatrix, mat4.create(), trs);
+
+    charProg.sendMatrix4f('mMatrix', mMatrix);
+    charProg.sendTexture2D('charTexture', charTexture.textures[1], 0);
+    gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
+
+    // ニ
+    offset += 0.9;
+    mat4.fromRotationTranslationScale(
+      trs,
+      quat.fromEuler(quat.create(), 0, 0, 0),
+      vec3.fromValues(0.0, margin * 2 - offset, 1.0),
+      vec3.fromValues(0.9, 0.9, 0.9)
+    );
+    mat4.multiply(mMatrix, mat4.create(), trs);
+
+    charProg.sendMatrix4f('mMatrix', mMatrix);
+    charProg.sendTexture2D('charTexture', charTexture.textures[2], 0);
+    gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
+
+    // 非
+    mat4.fromRotationTranslationScale(
+      trs,
+      quat.fromEuler(quat.create(), 0, 0, 0),
+      vec3.fromValues(0.0, margin * 3 - offset, 1.0),
+      vec3.fromValues(0.9, 0.9, 0.9)
+    );
+    mat4.multiply(mMatrix, mat4.create(), trs);
+
+    charProg.sendMatrix4f('mMatrix', mMatrix);
+    charProg.sendTexture2D('charTexture', charTexture.textures[3], 0);
+    gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
+
+    // ズ
+    offset += 0.7;
+    mat4.fromRotationTranslationScale(
+      trs,
+      quat.fromEuler(quat.create(), 0, 0, 0),
+      vec3.fromValues(0.0, margin * 4 - offset, 1.0),
+      vec3.fromValues(0.9, 0.9, 0.9)
+    );
+    mat4.multiply(mMatrix, mat4.create(), trs);
+
+    charProg.sendMatrix4f('mMatrix', mMatrix);
+    charProg.sendTexture2D('charTexture', charTexture.textures[4], 0);
+    gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
+
     gl.disable(gl.BLEND);
   };
 
@@ -610,12 +702,22 @@ const init = (): void => {
 };
 
 const preload = (): void => {
-  WebFont.load({
-    google: {
-      families: ['Sawarabi Mincho'],
-    },
-    active: init,
-  });
+  const load = (onLoad?: () => void): void => {
+    WebFont.load({
+      custom: {
+        urls: [
+          'https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500&display=swap',
+        ],
+        families: ['Noto Serif JP'],
+        testStrings: {
+          'Noto Serif JP': '終りに非ず',
+        },
+      },
+      active: onLoad,
+    });
+  };
+
+  load(init);
 };
 
 window.addEventListener('load', preload);
