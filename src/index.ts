@@ -35,16 +35,17 @@ const path = (z: number, scale: number): vec3 => {
   const v = vec3.fromValues(
     Math.sin(z + Math.cos(z * 0.7)) * 0.7,
     Math.cos(z + Math.cos(z * 1.2)) * 0.6,
-    Math.cos(z + Math.cos(z * 0.9)) * 2.6
+    Math.cos((z + Math.cos(z * 0.9)) * 0.7) * 2.3
   );
   return vec3.scale(v, v, scale);
 };
 
 const init = (): void => {
   const gl = Renderer.gl;
-  const sceneTexSize = Renderer.getSceneRenderSize() * 2.0;
-  // const scWidth = Renderer.canvas.width;
-  // const scHeight = Renderer.canvas.height;
+  // const sceneTexSize = Renderer.getSceneRenderSize() * 2.0;
+  const cinemaRatio = 0.85;
+  const scWidth = Renderer.canvas.width;
+  const scHeight = Renderer.canvas.height;
 
   const camera = new InteractionCamera(10.0);
 
@@ -65,8 +66,8 @@ const init = (): void => {
 
   // G-Buffer
   const gBufTex = [
-    new MRTTexture(sceneTexSize, sceneTexSize, 3, gl.FLOAT),
-    new MRTTexture(sceneTexSize, sceneTexSize, 3, gl.FLOAT),
+    new MRTTexture(scWidth, scHeight, 3, gl.FLOAT),
+    new MRTTexture(scWidth, scHeight, 3, gl.FLOAT),
   ];
   let readBufferIdx = 0;
   let writeBufferIdx = 1;
@@ -76,11 +77,7 @@ const init = (): void => {
   };
 
   // Scene render texture
-  const sceneRender = new RenderTexture(
-    sceneTexSize,
-    sceneTexSize,
-    gl.UNSIGNED_BYTE
-  );
+  const sceneRender = new RenderTexture(scWidth, scHeight, gl.UNSIGNED_BYTE);
   sceneRender.texture2d.setFilter(gl.LINEAR, gl.LINEAR);
 
   // Particle transform feedback
@@ -275,7 +272,13 @@ const init = (): void => {
     camera.center = vec3.fromValues(0.0, 0.0, 1.0);
     // camera.update();
     mat4.lookAt(vMatrix, camera.position, camera.center, camera.up);
-    mat4.perspective(pMatrix, fov, 1, 0.001, 100);
+    mat4.perspective(
+      pMatrix,
+      fov,
+      scWidth / (scHeight * cinemaRatio),
+      0.001,
+      100
+    );
     mat4.multiply(vpMatrix, pMatrix, vMatrix);
 
     mat4.lookAt(
@@ -284,13 +287,7 @@ const init = (): void => {
       vec3.create(),
       vec3.fromValues(0.0, 1.0, 0.0)
     );
-    mat4.perspective(
-      scPMatrix,
-      60,
-      Renderer.canvas.width / Renderer.canvas.height,
-      0.01,
-      10
-    );
+    mat4.perspective(scPMatrix, 60, scWidth / scHeight, 0.01, 10);
     mat4.multiply(scVPMatrix, scPMatrix, scVMatrix);
 
     // Particle transform feedback
@@ -379,11 +376,11 @@ const init = (): void => {
     // goddess
     mat4.identity(mMatrix);
     let trs = mat4.create();
-    const gdPos = path((time + 400.0) * 1.3, 0.01);
+    const gdPos = path((time + 299.0) * 1.3, 0.01);
     mat4.fromRotationTranslationScale(
       trs,
       quat.fromEuler(quat.create(), 0.0, 180, 0.0),
-      vec3.add(vec3.create(), gdPos, vec3.fromValues(0.0, -0.22, 0.2)),
+      vec3.add(vec3.create(), gdPos, vec3.fromValues(0.0, -0.22, 0.12)),
       vec3.fromValues(0.17, 0.17, 0.17)
     );
     mat4.multiply(mMatrix, mMatrix, trs);
@@ -549,7 +546,11 @@ const init = (): void => {
       gBufTex[readBufferIdx].texture2d[2],
       2
     );
-    raymarchingProg.send2f('resolution', sceneTexSize, sceneTexSize);
+    raymarchingProg.send2f(
+      'resolution',
+      gBufTex[writeBufferIdx].width,
+      gBufTex[writeBufferIdx].height
+    );
     raymarchingProg.send1f('time', time);
     raymarchingProg.sendVector3f('cameraPosition', camera.position);
     raymarchingProg.sendVector3f('cameraCenter', camera.center);
@@ -561,10 +562,10 @@ const init = (): void => {
     swapGBuffer();
 
     // Scene rendering
-    gl.clearColor(0.05, 0.05, 0.05, 1.0);
+    gl.clearColor(0.02, 0.02, 0.02, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     sceneRender.bind();
-    gl.viewport(0, 0, sceneTexSize, sceneTexSize);
+    gl.viewport(0, 0, scWidth, scHeight);
     outputProg.use();
     outputProg.sendTexture2D(
       'colorTex',
@@ -581,7 +582,7 @@ const init = (): void => {
       gBufTex[readBufferIdx].texture2d[2],
       2
     );
-    outputProg.send2f('resolution', sceneTexSize, sceneTexSize);
+    outputProg.send2f('resolution', scWidth, scHeight);
     outputProg.sendVector3f('camera', camera.position);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     sceneRender.unBind();
@@ -594,7 +595,7 @@ const init = (): void => {
     screenRenderProg.setAttribute(charVertexVBO, 'position', 3, gl.FLOAT);
     screenRenderProg.setAttribute(charTexcoordVBO, 'texcoord', 2, gl.FLOAT);
     screenRenderProg.sendMatrix4f('vpMatrix', scVPMatrix);
-    screenRenderProg.send2f('uResolution', sceneTexSize, sceneTexSize);
+    screenRenderProg.send2f('uResolution', scWidth, scHeight);
     screenRenderProg.setIBO(charIBO);
 
     mat4.identity(mMatrix);
@@ -602,7 +603,7 @@ const init = (): void => {
       trs,
       quat.fromEuler(quat.create(), 0, 0, 0),
       vec3.fromValues(0.0, 0.0, 0.0),
-      vec3.fromValues(6.4, 6.4, 6.4)
+      vec3.fromValues(6.4 * (scWidth / scHeight), 6.4 * cinemaRatio, 6.4)
     );
     mat4.multiply(mMatrix, mMatrix, trs);
 
@@ -624,15 +625,16 @@ const init = (): void => {
     );
     charProg.setIBO(charIBO);
 
-    let offset = 5.4;
-    const margin = 3.0;
+    let offset = 7.4;
+    const margin = 4.2;
+    const scale = 1.0;
 
     // 終
     mat4.fromRotationTranslationScale(
       trs,
       quat.fromEuler(quat.create(), 0, 0, 0),
       vec3.fromValues(0.0, margin * 0 - offset, 1.0),
-      vec3.fromValues(0.9, 0.9, 0.9)
+      vec3.fromValues(scale, scale, scale)
     );
     mat4.multiply(mMatrix, mat4.create(), trs);
 
@@ -641,12 +643,12 @@ const init = (): void => {
     gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
 
     // リ
-    offset += 0.9;
+    offset += scale;
     mat4.fromRotationTranslationScale(
       trs,
       quat.fromEuler(quat.create(), 0, 0, 0),
       vec3.fromValues(0.0, margin * 1 - offset, 1.0),
-      vec3.fromValues(0.9, 0.9, 0.9)
+      vec3.fromValues(scale, scale, scale)
     );
     mat4.multiply(mMatrix, mat4.create(), trs);
 
@@ -660,7 +662,7 @@ const init = (): void => {
       trs,
       quat.fromEuler(quat.create(), 0, 0, 0),
       vec3.fromValues(0.0, margin * 2 - offset, 1.0),
-      vec3.fromValues(0.9, 0.9, 0.9)
+      vec3.fromValues(scale, scale, scale)
     );
     mat4.multiply(mMatrix, mat4.create(), trs);
 
@@ -673,7 +675,7 @@ const init = (): void => {
       trs,
       quat.fromEuler(quat.create(), 0, 0, 0),
       vec3.fromValues(0.0, margin * 3 - offset, 1.0),
-      vec3.fromValues(0.9, 0.9, 0.9)
+      vec3.fromValues(scale, scale, scale)
     );
     mat4.multiply(mMatrix, mat4.create(), trs);
 
@@ -687,7 +689,7 @@ const init = (): void => {
       trs,
       quat.fromEuler(quat.create(), 0, 0, 0),
       vec3.fromValues(0.0, margin * 4 - offset, 1.0),
-      vec3.fromValues(0.9, 0.9, 0.9)
+      vec3.fromValues(scale, scale, scale)
     );
     mat4.multiply(mMatrix, mat4.create(), trs);
 
