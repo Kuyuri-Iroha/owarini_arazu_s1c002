@@ -35,8 +35,8 @@ export default class Renderer {
     WebGL2RenderingContext
   ] {
     const canvas = document.createElement('canvas');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.width = window.innerWidth * Math.min(window.devicePixelRatio, 2);
+    canvas.height = window.innerHeight * Math.min(window.devicePixelRatio, 2);
     Renderer._sceneTextureSize = Math.min(
       window.innerWidth,
       window.innerHeight

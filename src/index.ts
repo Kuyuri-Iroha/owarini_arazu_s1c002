@@ -10,17 +10,11 @@ import RenderTexture from './RenderTexture';
 import * as WebFont from 'webfontloader';
 
 import goddessData from './models/goddess.obj';
-import fighterData from './models/fighter.obj';
-import particleData from './models/particle.obj';
 
-import particleMoveVertStr from './shaders/particleMove.vert';
-import transformFeedbackFragStr from './shaders/transformFeedback.frag';
 import trailInitFragStr from './shaders/trailInit.frag';
 import trailUpdateFragStr from './shaders/trailUpdate.frag';
 import trailRenderVertStr from './shaders/trailRender.vert';
 import trailRenderFragStr from './shaders/trailRender.frag';
-import particleVertStr from './shaders/particle.vert';
-import particleFragStr from './shaders/particle.frag';
 import geometryVertStr from './shaders/geometry.vert';
 import geometryFragStr from './shaders/geometry.frag';
 import rectVertStr from './shaders/rect.vert';
@@ -44,8 +38,9 @@ const init = (): void => {
   const gl = Renderer.gl;
   // const sceneTexSize = Renderer.getSceneRenderSize() * 2.0;
   const cinemaRatio = 0.85;
-  const scWidth = Renderer.canvas.width;
-  const scHeight = Renderer.canvas.height;
+  const scWidth = Renderer.canvas.width * Math.min(window.devicePixelRatio, 2);
+  const scHeight =
+    Renderer.canvas.height * Math.min(window.devicePixelRatio, 2);
 
   const camera = new InteractionCamera(10.0);
 
@@ -55,14 +50,6 @@ const init = (): void => {
   // goddess
   const goddess = new Mesh(goddessData, { calcTangentsAndBitangents: true });
   const goddessBuffer = OBJ.initMeshBuffers(gl, goddess);
-
-  // fighter
-  const fighter = new Mesh(fighterData, { calcTangentsAndBitangents: true });
-  const fighterBuffer = OBJ.initMeshBuffers(gl, fighter);
-
-  // particle
-  const particle = new Mesh(particleData, { calcTangentsAndBitangents: true });
-  const particleBuffer = OBJ.initMeshBuffers(gl, particle);
 
   // G-Buffer
   const gBufTex = [
@@ -79,21 +66,6 @@ const init = (): void => {
   // Scene render texture
   const sceneRender = new RenderTexture(scWidth, scHeight, gl.UNSIGNED_BYTE);
   sceneRender.texture2d.setFilter(gl.LINEAR, gl.LINEAR);
-
-  // Particle transform feedback
-  const particleMoveVert = new Shader(particleMoveVertStr, gl.VERTEX_SHADER);
-  const particleMoveFrag = new Shader(
-    transformFeedbackFragStr,
-    gl.FRAGMENT_SHADER
-  );
-  const particleMoveProg = new ShaderProgram();
-  gl.transformFeedbackVaryings(
-    particleMoveProg.program,
-    ['outPosition', 'outVelocity'],
-    gl.SEPARATE_ATTRIBS
-  );
-  particleMoveProg.link(particleMoveVert, particleMoveFrag);
-  const particleMoveTF = gl.createTransformFeedback();
 
   // Char
   const charVertices = [
@@ -145,12 +117,6 @@ const init = (): void => {
   const geometryProg = new ShaderProgram();
   geometryProg.link(geometryVert, geometryFrag);
 
-  // Particle
-  const particleVert = new Shader(particleVertStr, gl.VERTEX_SHADER);
-  const particleFrag = new Shader(particleFragStr, gl.FRAGMENT_SHADER);
-  const particleProg = new ShaderProgram();
-  particleProg.link(particleVert, particleFrag);
-
   // Raymarching
   const raymarchingFrag = new Shader(raymarchingFragStr, gl.FRAGMENT_SHADER);
   const raymarchingProg = new ShaderProgram();
@@ -185,44 +151,6 @@ const init = (): void => {
   let vpMatrix = mat4.identity(mat4.create());
   let scVPMatrix = mat4.identity(mat4.create());
   let mvpMatrix = mat4.identity(mat4.create());
-  // let scMVPMatrix = mat4.identity(mat4.create());
-
-  // Particle VBO for transform feedback
-  const particleNum = 100000;
-  const particlePos = new Float32Array(particleNum * 3);
-  const particleVel = new Float32Array(particleNum * 3);
-  const particleCnt = new Float32Array(particleNum * 3);
-  for (let vi = 0; vi < particleNum; vi += 3) {
-    particlePos[vi + 0] = 0.03 * Math.random() - 0.015;
-    particlePos[vi + 1] = 0.5 * Math.random() - 0.25;
-    particlePos[vi + 2] = 0.03 * Math.random() - 0.015;
-
-    particleVel[vi + 0] = particlePos[vi + 0];
-    particleVel[vi + 1] = particlePos[vi + 1];
-    particleVel[vi + 2] = particlePos[vi + 2];
-
-    particleCnt[vi + 0] = 0.0;
-    particleCnt[vi + 1] = 0.0;
-    particleCnt[vi + 2] = 0.0;
-  }
-  let particlePosRVBO = ShaderProgram.createVBO(particlePos, gl.DYNAMIC_COPY);
-  let particlePosWVBO = ShaderProgram.createVBO(
-    new Float32Array(particlePos.length),
-    gl.DYNAMIC_COPY
-  );
-  let particleVelRVBO = ShaderProgram.createVBO(particleVel, gl.DYNAMIC_COPY);
-  let particleVelWVBO = ShaderProgram.createVBO(
-    new Float32Array(particleVel.length),
-    gl.DYNAMIC_COPY
-  );
-  const swapParticleVBO = (): void => {
-    const tmpP = particlePosRVBO;
-    const tmpV = particleVelRVBO;
-    particlePosRVBO = particlePosWVBO;
-    particleVelRVBO = particleVelWVBO;
-    particlePosWVBO = tmpP;
-    particleVelWVBO = tmpV;
-  };
 
   // Trails
   const trailNum = 700;
@@ -258,8 +186,14 @@ const init = (): void => {
   // main loop ========================================
   const zero = Date.now();
   let previousTime = performance.now();
+  let frameCount = 0;
   const tick = (): void => {
     requestAnimationFrame(tick);
+
+    frameCount++;
+    if (frameCount % 2 === 0) {
+      return;
+    }
 
     const time = (Date.now() - zero) * 1e-3 - 1.0;
     const currentTime = performance.now();
@@ -290,24 +224,6 @@ const init = (): void => {
     mat4.perspective(scPMatrix, 60, scWidth / scHeight, 0.01, 10);
     mat4.multiply(scVPMatrix, scPMatrix, scVMatrix);
 
-    // Particle transform feedback
-    particleMoveProg.use();
-    particleMoveProg.setAttribute(particlePosRVBO, 'position', 3, gl.FLOAT);
-    particleMoveProg.setAttribute(particleVelRVBO, 'velocity', 3, gl.FLOAT);
-    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, particleMoveTF);
-    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, particlePosWVBO);
-    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 1, particleVelWVBO);
-    particleMoveProg.send1f('time', time);
-    particleMoveProg.send1f('deltaTime', deltaTime);
-    gl.enable(gl.RASTERIZER_DISCARD);
-    gl.beginTransformFeedback(gl.POINTS);
-    gl.drawArrays(gl.POINTS, 0, particleNum);
-    gl.disable(gl.RASTERIZER_DISCARD);
-    gl.endTransformFeedback();
-    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
-    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 1, null);
-    swapParticleVBO();
-
     // Trail update
     trailBufferW.bind();
     trailUpdateProg.use();
@@ -331,34 +247,7 @@ const init = (): void => {
     trailUpdateProg.send1f('deltaTime', deltaTime);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     trailBufferW.unBind();
-    // swapTrailBuffer();
     swapTrailBuffer();
-
-    /*
-    trailBufferW.bind();
-    trailUpdateProg.use();
-    trailBufferW.setViewport();
-    trailUpdateProg.sendTexture2D(
-      'positionTexture',
-      trailBufferR.texture2d[0],
-      0
-    );
-    trailUpdateProg.sendTexture2D(
-      'velocityTexture',
-      trailBufferR.texture2d[1],
-      1
-    );
-    trailUpdateProg.sendTexture2D(
-      'counterTexture',
-      trailBufferR.texture2d[2],
-      2
-    );
-    trailUpdateProg.send1f('time', time);
-    trailUpdateProg.send1f('deltaTime', deltaTime);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    trailBufferW.unBind();
-    swapTrailBuffer();
-    */
 
     // Rendering
     // Geometry rendering
@@ -370,7 +259,6 @@ const init = (): void => {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     gBufTex[writeBufferIdx].setViewport();
-    // gl.viewport(0, 0, Renderer.canvas.width, Renderer.canvas.height);
     geometryProg.use();
 
     // goddess
@@ -413,94 +301,6 @@ const init = (): void => {
       gl.UNSIGNED_SHORT,
       0
     );
-
-    // fighter
-    mat4.identity(mMatrix);
-    mat4.fromRotationTranslationScale(
-      trs,
-      quat.fromEuler(quat.create(), 20, 210, 0.0),
-      vec3.fromValues(-0.02, -0.03, 0.16),
-      vec3.fromValues(0.005, 0.005, 0.005)
-    );
-    mat4.multiply(mMatrix, mMatrix, trs);
-    mat4.multiply(mvpMatrix, vpMatrix, mMatrix);
-
-    geometryProg.sendMatrix4f('mMatrix', mMatrix);
-    geometryProg.sendMatrix4f('mvpMatrix', mvpMatrix);
-    geometryProg.setAttribute(
-      fighterBuffer.vertexBuffer,
-      'position',
-      fighterBuffer.vertexBuffer.itemSize,
-      gl.FLOAT
-    );
-    geometryProg.setAttribute(
-      fighterBuffer.normalBuffer,
-      'normal',
-      fighterBuffer.normalBuffer.itemSize,
-      gl.FLOAT
-    );
-    geometryProg.setAttribute(
-      fighterBuffer.textureBuffer,
-      'texcoord',
-      fighterBuffer.textureBuffer.itemSize,
-      gl.FLOAT
-    );
-    geometryProg.setIBO(fighterBuffer.indexBuffer);
-    /*
-    gl.drawElements(
-      gl.TRIANGLES,
-      fighterBuffer.indexBuffer.numItems,
-      gl.UNSIGNED_SHORT,
-      0
-    );
-    */
-
-    // particle
-    mat4.identity(mMatrix);
-    mat4.fromRotationTranslationScale(
-      trs,
-      quat.fromEuler(quat.create(), -30, 0, 0),
-      vec3.fromValues(0.02, 0.0, 0.2),
-      vec3.fromValues(0.004, 0.004, 0.004)
-    );
-    mat4.multiply(mMatrix, mMatrix, trs);
-
-    particleProg.use();
-    particleProg.sendMatrix4f('mMatrix', mMatrix);
-    particleProg.sendMatrix4f('vpMatrix', vpMatrix);
-    particleProg.setAttribute(
-      particleBuffer.vertexBuffer,
-      'position',
-      particleBuffer.vertexBuffer.itemSize,
-      gl.FLOAT
-    );
-    particleProg.setAttribute(
-      particleBuffer.normalBuffer,
-      'normal',
-      particleBuffer.normalBuffer.itemSize,
-      gl.FLOAT
-    );
-    particleProg.setAttribute(
-      particleBuffer.textureBuffer,
-      'texcoord',
-      particleBuffer.textureBuffer.itemSize,
-      gl.FLOAT
-    );
-    particleProg.setAttribute(particlePosRVBO, 'instancePosition', 3, gl.FLOAT);
-    gl.vertexAttribDivisor(
-      particleProg.getAttribLocation('instancePosition'),
-      1
-    );
-    particleProg.setIBO(particleBuffer.indexBuffer);
-    /*
-    gl.drawElementsInstanced(
-      gl.TRIANGLES,
-      particleBuffer.indexBuffer.numItems,
-      gl.UNSIGNED_SHORT,
-      0,
-      particleNum
-    );
-    */
 
     // Trail rendering
     mat4.identity(mMatrix);
@@ -642,7 +442,7 @@ const init = (): void => {
     charProg.sendTexture2D('charTexture', charTexture.textures[0], 0);
     gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
 
-    // リ
+    // り
     offset += scale;
     mat4.fromRotationTranslationScale(
       trs,
@@ -656,7 +456,7 @@ const init = (): void => {
     charProg.sendTexture2D('charTexture', charTexture.textures[1], 0);
     gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
 
-    // ニ
+    // に
     offset += 0.9;
     mat4.fromRotationTranslationScale(
       trs,
@@ -683,7 +483,7 @@ const init = (): void => {
     charProg.sendTexture2D('charTexture', charTexture.textures[3], 0);
     gl.drawElements(gl.TRIANGLES, charIndices.length, gl.UNSIGNED_SHORT, 0);
 
-    // ズ
+    // ず
     offset += 0.7;
     mat4.fromRotationTranslationScale(
       trs,
