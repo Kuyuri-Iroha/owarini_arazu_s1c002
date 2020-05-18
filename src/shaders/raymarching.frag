@@ -68,7 +68,7 @@ void march(vec2 p, float faceDepth, out vec3 outRp, out vec3 outColor,
 
   vec3 rd = normalize(cs * p.x + cu * p.y + cd * td);
 
-  float addedTime = time + 0.0;
+  float addedTime = time + 400.0;
   cp.z += addedTime * SPEED;
   cp += path(cp.z);
   cd = vec3(0, 0, cp.z + 1.0);
