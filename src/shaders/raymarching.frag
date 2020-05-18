@@ -17,9 +17,6 @@ layout(location = 2) out vec4 gbuffer2;
 
 #define LOOP_MAX 216
 #define EPS 1e-4
-#define HORIZONTAL_AA 1
-#define saturate(x) clamp(x, 0.0, 1.0)
-#define sim(x, y) (abs(x - y) < EPS)
 
 const float PI = acos(-1.0);
 const float PI2 = PI * 2.0;
@@ -27,15 +24,14 @@ const float PI2 = PI * 2.0;
 #define SPEED 1.3
 
 #define rot(x) mat2(cos(x), -sin(x), sin(x), cos(x))
-#define pal(a, b, c, d, e) ((a) + (b)*sin(6.28 * ((c) * (d) + (e))))
 
+// Forked from https://www.shadertoy.com/view/3tGSR3
 vec3 path(float z) {
   z *= 0.5;
   return vec3(sin(z + cos(z * 0.7)) * 0.7, cos(z + cos(z * 1.2)) * 0.6, 0.) *
          0.4;
 }
 
-#define pmod(p, x) mod(p, x) - x * 0.5
 float map(vec3 p) {
   float d = 10e6;
   vec3 w = p;
@@ -44,7 +40,7 @@ float map(vec3 p) {
   p -= path(p.z);
 
   p.xy *= rot(sin(w.z * 2.9 + p.z * 0.7 +
-                  sin(w.x * 2. + w.z * 4. + time * 0. + 0.5) + w.z * 0.1) *
+              sin(w.x * 2. + w.z * 4. + time * 0. + 0.5) + w.z * 0.1) *
               1.6);
 
   float flTop = (-p.y + 1.1) * 2.3;
@@ -54,7 +50,6 @@ float map(vec3 p) {
   return d;
 }
 
-// normal
 vec3 norm(vec3 p) {
   return normalize(
       vec3(map(p + vec3(EPS, 0.0, 0.0)) - map(p + vec3(-EPS, 0.0, 0.0)),
@@ -73,7 +68,7 @@ void march(vec2 p, float faceDepth, out vec3 outRp, out vec3 outColor,
 
   vec3 rd = normalize(cs * p.x + cu * p.y + cd * td);
 
-  float addedTime = time + 400.0;
+  float addedTime = time + 0.0;
   cp.z += addedTime * SPEED;
   cp += path(cp.z);
   cd = vec3(0, 0, cp.z + 1.0);

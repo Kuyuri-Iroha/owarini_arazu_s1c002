@@ -2,7 +2,7 @@ import Renderer from './Renderer';
 import Shader from './Shader';
 import ShaderProgram from './ShaderProgram';
 import { mat4, vec3, glMatrix, quat } from 'gl-matrix';
-import InteractionCamera from './InteractionCamera';
+import Camera from './Camera';
 import { Mesh, OBJ } from 'webgl-obj-loader';
 import MRTTexture from './MRTTexture';
 import CharsTexture from './CharsTexture';
@@ -36,13 +36,12 @@ const path = (z: number, scale: number): vec3 => {
 
 const init = (): void => {
   const gl = Renderer.gl;
-  // const sceneTexSize = Renderer.getSceneRenderSize() * 2.0;
   const cinemaRatio = 0.85;
   const scWidth = Renderer.canvas.width * Math.min(window.devicePixelRatio, 2);
   const scHeight =
     Renderer.canvas.height * Math.min(window.devicePixelRatio, 2);
 
-  const camera = new InteractionCamera(10.0);
+  const camera = new Camera(10.0);
 
   // Char textures
   const charTexture = new CharsTexture('終りに非ず', 512);
@@ -185,7 +184,6 @@ const init = (): void => {
 
   // main loop ========================================
   const zero = Date.now();
-  let previousTime = performance.now();
   let frameCount = 0;
   const tick = (): void => {
     requestAnimationFrame(tick);
@@ -196,9 +194,6 @@ const init = (): void => {
     }
 
     const time = (Date.now() - zero) * 1e-3 - 1.0;
-    const currentTime = performance.now();
-    const deltaTime = Math.min(0.1, (currentTime - previousTime) * 0.001);
-    previousTime = currentTime;
 
     // camera update
     const fov = glMatrix.toRadian(90);
@@ -234,7 +229,7 @@ const init = (): void => {
       0
     );
     trailUpdateProg.sendTexture2D(
-      'velocityTexture',
+      'initPositionTexture',
       trailBufferR.texture2d[1],
       1
     );
@@ -244,13 +239,11 @@ const init = (): void => {
       2
     );
     trailUpdateProg.send1f('time', time);
-    trailUpdateProg.send1f('deltaTime', deltaTime);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     trailBufferW.unBind();
     swapTrailBuffer();
 
-    // Rendering
-    // Geometry rendering
+    // Rendering --------------------------
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clearDepth(1.0);
     gBufTex[writeBufferIdx].bind();
@@ -418,11 +411,6 @@ const init = (): void => {
     charProg.setAttribute(charVertexVBO, 'position', 3, gl.FLOAT);
     charProg.setAttribute(charTexcoordVBO, 'texcoord', 2, gl.FLOAT);
     charProg.sendMatrix4f('vpMatrix', scVPMatrix);
-    charProg.send2f(
-      'uResolution',
-      Renderer.gl.canvas.width,
-      Renderer.gl.canvas.height
-    );
     charProg.setIBO(charIBO);
 
     let offset = 7.4;

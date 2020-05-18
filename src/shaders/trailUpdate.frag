@@ -4,14 +4,13 @@ precision highp float;
 #define PI 3.14159265359
 
 layout(location = 0) out vec3 outPosition;
-layout(location = 1) out vec3 outVelocity;
+layout(location = 1) out vec3 outInitPosition;
 layout(location = 2) out vec3 outCounter;
 
 uniform sampler2D positionTexture;
-uniform sampler2D velocityTexture;
+uniform sampler2D initPositionTexture;
 uniform sampler2D counterTexture;
 uniform float time;
-uniform float deltaTime;
 
 #define rot(x) mat2(cos(x), -sin(x), sin(x), cos(x))
 
@@ -93,15 +92,13 @@ vec3 limit(vec3 v, float max) {
 }
 void main(void) {
   ivec2 coord = ivec2(gl_FragCoord.xy);
-  vec3 nextPosition, nextVelocity;
-  vec3 velocity = texelFetch(velocityTexture, coord, 0).xyz;
-  vec3 position = texelFetch(positionTexture, coord, 0).xyz;
+  vec3 initPosition = texelFetch(initPositionTexture, coord, 0).xyz;
   vec3 headPos = texelFetch(positionTexture, ivec2(coord.x, 0), 0).xyz;
   vec3 headCounter = texelFetch(counterTexture, ivec2(coord.x, 0), 0).xyz;
-  vec3 pos = velocity;
+  vec3 pos = initPosition;
 
   float countRefleshed = 0.0;
-  if(0.5 < headCounter.z) {
+  if (0.5 < headCounter.z) {
     headCounter.y += 1.0;
     headCounter.z = 0.0;
     countRefleshed = 1.0;
@@ -111,21 +108,15 @@ void main(void) {
   pos.z -= offsetZ;
   float animParam = (time * 2.0) + gl_FragCoord.y * 0.002;
 
-  float theta = -PI / 3.0;
-
   pos += vec3(0.0, 0.0, animParam * 0.5);
   vec3 pa = path(pos.z + time * 1.3);
   vec3 ns = curlnoise(pos / 2.0, time);
-  //pos.y += ns.y * 0.02;
-  //pos.y += pa.y * 1.0 * pos.z;
 
-  //pos.xy *= rot(animParam);
-
-  if(10.0 < headPos.z && countRefleshed < 0.5) {
+  if (10.0 < headPos.z && countRefleshed < 0.5) {
     headCounter.z = 1.0;
   }
 
-  outVelocity = velocity;
+  outInitPosition = initPosition;
   outPosition = pos;
   outCounter = headCounter;
 }
